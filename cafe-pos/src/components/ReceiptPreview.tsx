@@ -119,7 +119,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
             <Box
               component="img"
               src={require('../assets/Logo.png')}
-              alt="Tacka Coffee Logo"
+              alt="Lacromisa Coffee Logo"
               sx={{
                 width: 60,
                 height: 60,
@@ -131,7 +131,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
               }}
             />
             <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
-              Tacka Coffee
+              Lacromisa Coffee
             </Typography>
             <Typography variant="body2" color="text.secondary">
               POS Satış Fişi
@@ -212,7 +212,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
             display: 'block',
             color: 'text.secondary'
           }}>
-            Tacka Coffee POS Sistemi
+                          Lacromisa Coffee POS Sistemi
             <br />
             Bizi tercih ettiğiniz için teşekkür ederiz!
           </Typography>

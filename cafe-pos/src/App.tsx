@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { useStore } from './store/useStore';
 import { CartItem } from './types';
+import { getDatabaseIPC } from './services/database-ipc';
 import LoginScreen from './components/LoginScreen';
 import SplashScreen from './components/SplashScreen';
 import LogoutConfirmDialog from './components/LogoutConfirmDialog';
@@ -167,7 +168,7 @@ const MainApp: React.FC = () => {
   const [showTables, setShowTables] = React.useState(false);
   const [showTableSelection, setShowTableSelection] = React.useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = React.useState<number | null>(null);
-  const [tableOrders, setTableOrders] = React.useState<{[key: number]: {items: CartItem[], total: number, startTime: Date}}>({});
+  const [tableOrders, setTableOrders] = React.useState<{[key: number]: {items: any[], total: number, startTime: Date}}>({});
   const [showTableDetail, setShowTableDetail] = React.useState(false);
   const [selectedTableForDetail, setSelectedTableForDetail] = React.useState<number | null>(null);
   const [isAddingToTable, setIsAddingToTable] = React.useState<number | null>(null);
@@ -175,7 +176,21 @@ const MainApp: React.FC = () => {
   // Verileri uygulama başlarken yükle
   React.useEffect(() => {
     loadData();
+    loadTableOrders();
   }, [loadData]);
+
+  // Masa siparişlerini veritabanından yükle
+  const loadTableOrders = async () => {
+    console.log('🔄 Masa siparişleri yükleniyor...');
+    try {
+      const db = getDatabaseIPC();
+      const activeOrders = await db.getActiveTableOrders();
+      console.log('✅ Masa siparişleri yüklendi:', activeOrders);
+      setTableOrders(activeOrders);
+    } catch (error) {
+      console.error('❌ Masa siparişleri yüklenirken hata:', error);
+    }
+  };
 
   // Saati gerçek zamanlı güncelle
   React.useEffect(() => {
@@ -301,7 +316,7 @@ const MainApp: React.FC = () => {
             <Box
               component="img"
               src={require('./assets/Logo.png')}
-              alt="Tacka Coffee Logo"
+              alt="Lacromisa Coffee Logo"
               sx={{
                 width: 48,
                 height: 48,
@@ -312,7 +327,7 @@ const MainApp: React.FC = () => {
               }}
             />
             <Typography variant="h5" component="div" sx={{ fontWeight: 700 }}>
-              Tacka Coffee
+              Lacromisa Coffee
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
@@ -596,12 +611,17 @@ const MainApp: React.FC = () => {
                         </Typography>
                         
                         {/* Durum İkonu */}
-                        <Typography sx={{ 
-                          fontSize: '3rem',
-                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                        }}>
-                          {isOccupied ? '🛋️' : '🪑'}
-                        </Typography>
+                        <Box
+                          component="img"
+                          src={require('./assets/Table.png')}
+                          alt="Masa"
+                          sx={{
+                            width: '60px',
+                            height: '60px',
+                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                            opacity: 0.9
+                          }}
+                        />
                         
                         {/* Durum Bilgisi */}
                         <Box sx={{ textAlign: 'center' }}>
@@ -1202,8 +1222,50 @@ const MainApp: React.FC = () => {
                       color: 'rgba(255, 255, 255, 0.6)'
                     }
                   }}
-                  onClick={() => {
-                    startPayment(cart.total);
+                  onClick={async () => {
+                    try {
+                      console.log('🔄 Sepet ödemesi alınıyor...', { total: cart.total, itemsCount: cart.items.length });
+                      
+                      const db = getDatabaseIPC();
+                      
+                      // Satış verisi oluştur
+                      const now = new Date();
+                      const saleData = {
+                        id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        date: now.toISOString().split('T')[0], // YYYY-MM-DD
+                        time: now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+                        totalAmount: cart.total,
+                        paymentMethod: 'cash' as const,
+                        cashAmount: cart.total,
+                        cardAmount: 0,
+                        customerCount: 1,
+                        notes: 'Sepet ödemesi',
+                        createdAt: now.toISOString(),
+                        items: cart.items.map((item: any) => ({
+                          productId: item.product.id,
+                          productName: item.product.name,
+                          quantity: item.quantity,
+                          unitPrice: item.product.price,
+                          totalPrice: item.product.price * item.quantity,
+                          category: item.product.category
+                        }))
+                      };
+                      
+                      console.log('📊 Sepet satış verisi oluşturuldu:', saleData);
+                      
+                      // Satışı kaydet
+                      const saleSuccess = await db.saveSale(saleData);
+                      
+                      if (saleSuccess) {
+                        console.log('✅ Sepet satışı başarıyla kaydedildi');
+                        // Ödeme dialogunu aç
+                        startPayment(cart.total);
+                      } else {
+                        console.error('❌ Sepet satışı kaydedilemedi');
+                      }
+                    } catch (error) {
+                      console.error('❌ Sepet ödeme hatası:', error);
+                    }
                   }}
                 >
                   Ödeme Al
@@ -1252,21 +1314,30 @@ const MainApp: React.FC = () => {
                       background: 'linear-gradient(45deg, #ff5252 30%, #d32f2f 90%)',
                     }
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (isAddingToTable) {
-                      // Mevcut masaya sipariş ekle
-                      setTableOrders(prev => ({
-                        ...prev,
-                        [isAddingToTable]: {
-                          items: [...(prev[isAddingToTable]?.items || []), ...cart.items],
-                          total: (prev[isAddingToTable]?.total || 0) + cart.total,
-                          startTime: prev[isAddingToTable]?.startTime || new Date()
+                      try {
+                        const db = getDatabaseIPC();
+                        const success = await db.addToTableOrder(isAddingToTable, cart.items, cart.total);
+                        
+                        if (success) {
+                          // State'i güncelle
+                          setTableOrders(prev => ({
+                            ...prev,
+                            [isAddingToTable]: {
+                              items: [...(prev[isAddingToTable]?.items || []), ...cart.items],
+                              total: (prev[isAddingToTable]?.total || 0) + cart.total,
+                              startTime: prev[isAddingToTable]?.startTime || new Date()
+                            }
+                          }));
+                          // Sepeti temizle
+                          clearCart();
+                          // isAddingToTable'ı sıfırla
+                          setIsAddingToTable(null);
                         }
-                      }));
-                      // Sepeti temizle
-                      clearCart();
-                      // isAddingToTable'ı sıfırla
-                      setIsAddingToTable(null);
+                      } catch (error) {
+                        console.error('Masaya sipariş ekleme hatası:', error);
+                      }
                     }
                   }}
                 >
@@ -1437,22 +1508,42 @@ const MainApp: React.FC = () => {
               İptal
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (selectedTableNumber) {
-                  // Masaya sipariş ekle
-                  setTableOrders(prev => ({
-                    ...prev,
-                    [selectedTableNumber]: {
-                      items: cart.items,
-                      total: cart.total,
-                      startTime: new Date()
+                  console.log('🔄 Masa siparişi kaydediliyor...', { 
+                    tableNumber: selectedTableNumber, 
+                    itemsCount: cart.items.length, 
+                    total: cart.total 
+                  });
+                  try {
+                    const db = getDatabaseIPC();
+                    console.log('📞 Database IPC servisi çağrılıyor...');
+                    const success = await db.saveTableOrder(selectedTableNumber, cart.items, cart.total);
+                    console.log('📞 Database IPC servisi yanıtı:', success);
+                    
+                    if (success) {
+                      console.log('✅ Masa siparişi başarıyla kaydedildi');
+                      // State'i güncelle
+                      setTableOrders(prev => ({
+                        ...prev,
+                        [selectedTableNumber]: {
+                          items: cart.items,
+                          total: cart.total,
+                          startTime: new Date()
+                        }
+                      }));
+                      // Sepeti temizle
+                      clearCart();
+                      // Dialog'u kapat
+                      setShowTableSelection(false);
+                      setSelectedTableNumber(null);
+                    } else {
+                      console.error('❌ Masa siparişi kaydedilemedi - success false döndü');
                     }
-                  }));
-                  // Sepeti temizle
-                  clearCart();
-                  // Dialog'u kapat
-                  setShowTableSelection(false);
-                  setSelectedTableNumber(null);
+                  } catch (error) {
+                    console.error('❌ Masa siparişi kaydetme hatası:', error);
+                    console.error('❌ Hata detayı:', error.message);
+                  }
                 }
               }}
               variant="contained"
@@ -1506,7 +1597,18 @@ const MainApp: React.FC = () => {
               if (!isOccupied) {
                 return (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography sx={{ fontSize: '4rem', mb: 2 }}>🪑</Typography>
+                    <Box
+                      component="img"
+                      src={require('./assets/Table.png')}
+                      alt="Masa"
+                      sx={{
+                        width: '80px',
+                        height: '80px',
+                        mb: 2,
+                        opacity: 0.6,
+                        filter: 'drop-shadow(0 2px 4px rgba(10, 73, 64, 0.2))'
+                      }}
+                    />
                     <Typography variant="h5" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
                       Bu Masa Boş
                     </Typography>
@@ -1587,10 +1689,69 @@ const MainApp: React.FC = () => {
             {selectedTableForDetail && tableOrders[selectedTableForDetail] && (
               <>
                 <Button
-                  onClick={() => {
-                    // Ödeme al
-                    startPayment(tableOrders[selectedTableForDetail].total);
-                    setShowTableDetail(false);
+                  onClick={async () => {
+                    try {
+                      console.log('🔄 Masa ödemesi alınıyor...', { tableNumber: selectedTableForDetail, total: tableOrders[selectedTableForDetail].total });
+                      
+                      const db = getDatabaseIPC();
+                      const tableOrder = tableOrders[selectedTableForDetail];
+                      
+                      // Satış verisi oluştur
+                      const now = new Date();
+                      const saleData = {
+                        id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        date: now.toISOString().split('T')[0], // YYYY-MM-DD
+                        time: now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+                        totalAmount: tableOrder.total,
+                        paymentMethod: 'cash' as const,
+                        cashAmount: tableOrder.total,
+                        cardAmount: 0,
+                        customerCount: 1,
+                        notes: `Masa ${selectedTableForDetail} ödemesi`,
+                        createdAt: now.toISOString(),
+                        items: tableOrder.items.map((item: any) => ({
+                          productId: item.product.id,
+                          productName: item.product.name,
+                          quantity: item.quantity,
+                          unitPrice: item.product.price,
+                          totalPrice: item.product.price * item.quantity,
+                          category: item.product.category
+                        }))
+                      };
+                      
+                      console.log('📊 Satış verisi oluşturuldu:', saleData);
+                      
+                      // Satışı kaydet
+                      const saleSuccess = await db.saveSale(saleData);
+                      
+                      if (saleSuccess) {
+                        console.log('✅ Satış başarıyla kaydedildi');
+                        
+                        // Masayı kapat
+                        const closeSuccess = await db.closeTableOrder(selectedTableForDetail);
+                        
+                        if (closeSuccess) {
+                          console.log('✅ Masa başarıyla kapatıldı');
+                          
+                          // State'den masayı kaldır
+                          setTableOrders(prev => {
+                            const newOrders = { ...prev };
+                            delete newOrders[selectedTableForDetail];
+                            return newOrders;
+                          });
+                          
+                          // Ödeme dialogunu aç
+                          startPayment(tableOrder.total);
+                          setShowTableDetail(false);
+                        } else {
+                          console.error('❌ Masa kapatılamadı');
+                        }
+                      } else {
+                        console.error('❌ Satış kaydedilemedi');
+                      }
+                    } catch (error) {
+                      console.error('❌ Masa ödeme hatası:', error);
+                    }
                   }}
                   variant="contained"
                   startIcon={<PaymentIcon />}

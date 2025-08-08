@@ -466,3 +466,57 @@ ipcMain.handle('get-printers', async () => {
   // Windows'ta bulunan yazıcıları listele
   return [];
 });
+
+// Masa siparişleri IPC handlers
+ipcMain.handle('db-get-active-table-orders', async () => {
+  console.log('🔄 IPC Handler çağrıldı: db-get-active-table-orders');
+  try {
+    const db = getDatabase();
+    console.log('📊 Database instance alındı');
+    const result = db.getActiveTableOrders();
+    console.log('✅ Aktif masa siparişleri alındı:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database get active table orders error:', error);
+    return {};
+  }
+});
+
+console.log('🔧 IPC Handlers kaydediliyor...');
+console.log('🔧 db-get-active-table-orders handler kaydedildi');
+console.log('🔧 db-save-table-order handler kaydedildi');
+console.log('🔧 db-add-to-table-order handler kaydedildi');
+console.log('🔧 db-close-table-order handler kaydedildi');
+
+ipcMain.handle('db-save-table-order', async (event, tableNumber, items, total) => {
+  console.log('🔄 IPC Handler çağrıldı: db-save-table-order', { tableNumber, itemsCount: items.length, total });
+  try {
+    const db = getDatabase();
+    const result = db.saveTableOrder(tableNumber, items, total);
+    console.log('✅ Masa siparişi kaydedildi:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database save table order error:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('db-add-to-table-order', async (event, tableNumber, items, total) => {
+  try {
+    const db = getDatabase();
+    return db.addToTableOrder(tableNumber, items, total);
+  } catch (error) {
+    console.error('Database add to table order error:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('db-close-table-order', async (event, tableNumber) => {
+  try {
+    const db = getDatabase();
+    return db.closeTableOrder(tableNumber);
+  } catch (error) {
+    console.error('Database close table order error:', error);
+    return false;
+  }
+});

@@ -113,7 +113,7 @@ const PaymentDialog: React.FC = () => {
         paymentMethod: allPaymentMethods.find(pm => pm.id === method)?.name || method
       };
       
-      // Satışı veritabanına kaydet
+      // Satışı veritabanına kaydet - yeni sistem
       const paymentMethodForDB = method === 'contactless' ? 'card' : method;
       if (paymentMethodForDB === 'mixed') {
         await saveSale('mixed', parseFloat(cashAmount), parseFloat(cardAmount));

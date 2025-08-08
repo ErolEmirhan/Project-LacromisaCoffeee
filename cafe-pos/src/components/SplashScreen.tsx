@@ -31,7 +31,7 @@ const SplashScreen: React.FC = () => {
     '📊 Menü sistemi yükleniyor...',
     '💰 Kasa sistemi açılıyor...',
     '✨ Son dokunuşlar yapılıyor...',
-    '🎉 Tacka Coffee\'ye hoş geldiniz!'
+            '🎉 Lacromisa Coffee\'ye hoş geldiniz!'
   ];
 
   useEffect(() => {
@@ -183,7 +183,7 @@ const SplashScreen: React.FC = () => {
               {!logoError && logoUrl ? (
                 <img 
                   src={logoUrl}
-                  alt="Tacka Cafe Logo"
+                  alt="Lacromisa Cafe Logo"
                   style={{ 
                     width: '200px', 
                     height: '200px', 
@@ -231,7 +231,7 @@ const SplashScreen: React.FC = () => {
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text'
               }}>
-                TACKA COFFEE
+                LACROMISA COFFEE
               </Typography>
               <Typography variant="h6" sx={{ 
                 color: 'rgba(255,255,255,0.9)',

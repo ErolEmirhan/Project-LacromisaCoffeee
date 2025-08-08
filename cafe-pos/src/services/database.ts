@@ -87,6 +87,33 @@ class DatabaseService {
         )
       `);
 
+      // Masa siparişleri tablosu
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS table_orders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_number INTEGER NOT NULL,
+          total_amount REAL NOT NULL,
+          start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+          is_active BOOLEAN DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Masa sipariş detayları tablosu
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS table_order_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_order_id INTEGER NOT NULL,
+          product_id TEXT NOT NULL,
+          product_name TEXT NOT NULL,
+          quantity INTEGER NOT NULL,
+          unit_price REAL NOT NULL,
+          total_price REAL NOT NULL,
+          category TEXT NOT NULL,
+          FOREIGN KEY (table_order_id) REFERENCES table_orders(id)
+        )
+      `);
+
       console.log('Veritabanı tabloları hazır!');
     } catch (error) {
       console.error('Tablo oluşturma hatası:', error);
@@ -363,6 +390,162 @@ class DatabaseService {
   // Veritabanı yolunu getir
   getDatabasePath(): string {
     return this.dbPath;
+  }
+
+  // ==================== MASA SİPARİŞLERİ İŞLEMLERİ ====================
+
+  // Aktif masa siparişlerini getir
+  getActiveTableOrders(): { [key: number]: { items: any[], total: number, startTime: Date } } {
+    try {
+      const ordersStmt = this.db.prepare(`
+        SELECT * FROM table_orders 
+        WHERE is_active = 1 
+        ORDER BY table_number
+      `);
+      const orders = ordersStmt.all() as any[];
+
+      const itemsStmt = this.db.prepare(`
+        SELECT * FROM table_order_items 
+        WHERE table_order_id = ?
+      `);
+
+      const result: { [key: number]: { items: any[], total: number, startTime: Date } } = {};
+
+      orders.forEach(order => {
+        const items = itemsStmt.all(order.id).map((item: any) => ({
+          product: {
+            id: item.product_id,
+            name: item.product_name,
+            price: item.unit_price,
+            category: item.category
+          },
+          quantity: item.quantity
+        }));
+
+        result[order.table_number] = {
+          items,
+          total: order.total_amount,
+          startTime: new Date(order.start_time)
+        };
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Aktif masa siparişleri getirme hatası:', error);
+      return {};
+    }
+  }
+
+  // Masa siparişi kaydet
+  saveTableOrder(tableNumber: number, items: any[], total: number): boolean {
+    try {
+      const transaction = this.db.transaction(() => {
+        // Masa siparişini kaydet
+        const orderStmt = this.db.prepare(`
+          INSERT INTO table_orders (table_number, total_amount, start_time, is_active) 
+          VALUES (?, ?, CURRENT_TIMESTAMP, 1)
+        `);
+        
+        const result = orderStmt.run(tableNumber, total);
+        const orderId = result.lastInsertRowid;
+
+        // Sipariş detaylarını kaydet
+        const itemStmt = this.db.prepare(`
+          INSERT INTO table_order_items (table_order_id, product_id, product_name, quantity, unit_price, total_price, category) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const item of items) {
+          itemStmt.run(
+            orderId,
+            item.product.id,
+            item.product.name,
+            item.quantity,
+            item.product.price,
+            item.product.price * item.quantity,
+            item.product.category
+          );
+        }
+      });
+
+      transaction();
+      return true;
+    } catch (error) {
+      console.error('Masa siparişi kaydetme hatası:', error);
+      return false;
+    }
+  }
+
+  // Mevcut masaya sipariş ekle
+  addToTableOrder(tableNumber: number, items: any[], total: number): boolean {
+    try {
+      const transaction = this.db.transaction(() => {
+        // Mevcut siparişi bul
+        const existingOrderStmt = this.db.prepare(`
+          SELECT * FROM table_orders 
+          WHERE table_number = ? AND is_active = 1
+        `);
+        const existingOrder = existingOrderStmt.get(tableNumber) as any;
+
+        if (existingOrder) {
+          // Mevcut siparişe ekle
+          const itemStmt = this.db.prepare(`
+            INSERT INTO table_order_items (table_order_id, product_id, product_name, quantity, unit_price, total_price, category) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          for (const item of items) {
+            itemStmt.run(
+              existingOrder.id,
+              item.product.id,
+              item.product.name,
+              item.quantity,
+              item.product.price,
+              item.product.price * item.quantity,
+              item.product.category
+            );
+          }
+
+          // Toplam tutarı güncelle
+          const updateStmt = this.db.prepare(`
+            UPDATE table_orders 
+            SET total_amount = total_amount + ? 
+            WHERE id = ?
+          `);
+          updateStmt.run(total, existingOrder.id);
+        } else {
+          // Yeni sipariş oluştur
+          this.saveTableOrder(tableNumber, items, total);
+        }
+      });
+
+      transaction();
+      return true;
+    } catch (error) {
+      console.error('Masaya sipariş ekleme hatası:', error);
+      return false;
+    }
+  }
+
+  // Masa siparişini ödeme ile kapat
+  closeTableOrder(tableNumber: number): boolean {
+    try {
+      const transaction = this.db.transaction(() => {
+        // Masa siparişini pasif yap
+        const updateStmt = this.db.prepare(`
+          UPDATE table_orders 
+          SET is_active = 0 
+          WHERE table_number = ? AND is_active = 1
+        `);
+        updateStmt.run(tableNumber);
+      });
+
+      transaction();
+      return true;
+    } catch (error) {
+      console.error('Masa siparişi kapatma hatası:', error);
+      return false;
+    }
   }
 
   // ==================== SATIŞ İŞLEMLERİ ====================

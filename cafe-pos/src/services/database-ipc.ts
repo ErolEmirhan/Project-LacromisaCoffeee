@@ -217,6 +217,45 @@ export class DatabaseIPCService {
       };
     }
   }
+
+  // ==================== MASA SİPARİŞLERİ İŞLEMLERİ ====================
+
+  async getActiveTableOrders(): Promise<{ [key: number]: { items: any[], total: number, startTime: Date } }> {
+    try {
+      const result = await (window as any).electronAPI.database.getActiveTableOrders();
+      return result || {};
+    } catch (error) {
+      console.error('Aktif masa siparişleri alma hatası:', error);
+      return {};
+    }
+  }
+
+  async saveTableOrder(tableNumber: number, items: any[], total: number): Promise<boolean> {
+    try {
+      return await (window as any).electronAPI.database.saveTableOrder(tableNumber, items, total);
+    } catch (error) {
+      console.error('Masa siparişi kaydetme hatası:', error);
+      return false;
+    }
+  }
+
+  async addToTableOrder(tableNumber: number, items: any[], total: number): Promise<boolean> {
+    try {
+      return await (window as any).electronAPI.database.addToTableOrder(tableNumber, items, total);
+    } catch (error) {
+      console.error('Masaya sipariş ekleme hatası:', error);
+      return false;
+    }
+  }
+
+  async closeTableOrder(tableNumber: number): Promise<boolean> {
+    try {
+      return await (window as any).electronAPI.database.closeTableOrder(tableNumber);
+    } catch (error) {
+      console.error('Masa siparişi kapatma hatası:', error);
+      return false;
+    }
+  }
 }
 
 // Singleton instance

@@ -44,7 +44,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Satış işlemleri
     saveSale: (sale: any) => ipcRenderer.invoke('db-save-sale', sale),
     getAllSales: () => ipcRenderer.invoke('db-get-all-sales'),
-    getDashboardStats: () => ipcRenderer.invoke('db-get-dashboard-stats')
+    getDashboardStats: () => ipcRenderer.invoke('db-get-dashboard-stats'),
+    
+    // Masa siparişleri işlemleri
+    getActiveTableOrders: () => ipcRenderer.invoke('db-get-active-table-orders'),
+    saveTableOrder: (tableNumber: number, items: any[], total: number) => ipcRenderer.invoke('db-save-table-order', tableNumber, items, total),
+    addToTableOrder: (tableNumber: number, items: any[], total: number) => ipcRenderer.invoke('db-add-to-table-order', tableNumber, items, total),
+    closeTableOrder: (tableNumber: number) => ipcRenderer.invoke('db-close-table-order', tableNumber)
   }
 });
 
