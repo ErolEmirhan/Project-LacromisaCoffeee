@@ -48,7 +48,7 @@ const LogoutConfirmDialog: React.FC = () => {
         }}>
           <WarningIcon sx={{ fontSize: '2rem', color: 'warning.dark' }} />
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
           Çıkış Yapmak İstediğinizden Emin misiniz?
         </Typography>
       </DialogTitle>

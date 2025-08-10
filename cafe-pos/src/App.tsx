@@ -26,7 +26,14 @@ import {
   Grid,
   FormControl,
   Select,
-  MenuItem
+  MenuItem,
+  Drawer,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+  Snackbar,
+  Alert,
+  Slide
 } from '@mui/material';
 import { 
   LocalCafe as LocalCafeIcon,
@@ -40,8 +47,10 @@ import {
   Fullscreen as FullscreenIcon,
   FullscreenExit as FullscreenExitIcon,
   Search as SearchIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
+// Removed default MenuIcon in favor of custom modern hamburger
 import { useStore } from './store/useStore';
 import { CartItem } from './types';
 import { getDatabaseIPC } from './services/database-ipc';
@@ -137,6 +146,36 @@ const theme = createTheme({
   },
 });
 
+// Modern hamburger icon with morph-to-X animation
+const HamburgerIcon: React.FC<{ active?: boolean }> = ({ active = false }) => {
+  const barCommon = {
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    background: 'linear-gradient(90deg, #0a4940 0%, #2e6b63 100%)',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+    transition: 'transform 220ms ease, opacity 220ms ease, width 220ms ease',
+  } as const;
+
+  return (
+    <Box sx={{ width: 28, height: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.8 }}>
+      <Box className="ham-bar" sx={{
+        ...barCommon,
+        transform: active ? 'translateY(7px) rotate(45deg)' : 'translateY(0) rotate(0deg)'
+      }} />
+      <Box className="ham-bar" sx={{
+        ...barCommon,
+        width: active ? 0 : 20,
+        opacity: active ? 0 : 1
+      }} />
+      <Box className="ham-bar" sx={{
+        ...barCommon,
+        transform: active ? 'translateY(-7px) rotate(-45deg)' : 'translateY(0) rotate(0deg)'
+      }} />
+    </Box>
+  );
+};
+
 const MainApp: React.FC = () => {
   const {
     categories,
@@ -163,6 +202,9 @@ const MainApp: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showVirtualKeyboard, setShowVirtualKeyboard] = React.useState(false);
+  const [showSizeDialog, setShowSizeDialog] = React.useState(false);
+  const [sizeSelectProduct, setSizeSelectProduct] = React.useState<any | null>(null);
+  const [selectedSizeId, setSelectedSizeId] = React.useState<string | null>(null);
 
   const [currentTime, setCurrentTime] = React.useState(new Date());
   const [showTables, setShowTables] = React.useState(false);
@@ -172,6 +214,10 @@ const MainApp: React.FC = () => {
   const [showTableDetail, setShowTableDetail] = React.useState(false);
   const [selectedTableForDetail, setSelectedTableForDetail] = React.useState<number | null>(null);
   const [isAddingToTable, setIsAddingToTable] = React.useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [toastOpen, setToastOpen] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState('');
+  const [toastSeverity, setToastSeverity] = React.useState<'success' | 'error' | 'warning' | 'info'>('success');
 
   // Verileri uygulama başlarken yükle
   React.useEffect(() => {
@@ -187,7 +233,7 @@ const MainApp: React.FC = () => {
       const activeOrders = await db.getActiveTableOrders();
       console.log('✅ Masa siparişleri yüklendi:', activeOrders);
       setTableOrders(activeOrders);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Masa siparişleri yüklenirken hata:', error);
     }
   };
@@ -209,7 +255,7 @@ const MainApp: React.FC = () => {
           const fullscreen = await window.electronAPI.isFullscreen();
           setIsFullscreen(fullscreen);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Tam ekran durumu kontrol hatası:', error);
       }
     };
@@ -231,15 +277,18 @@ const MainApp: React.FC = () => {
           try {
             const fullscreen = await window.electronAPI.isFullscreen();
             setIsFullscreen(fullscreen);
-          } catch (error) {
+          } catch (error: any) {
             console.error('Tam ekran durumu güncelleme hatası:', error);
           }
         }, 100);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Tam ekran toggle hatası:', error);
     }
   };
+
+  const openHeaderDrawer = () => setDrawerOpen(true);
+  const closeHeaderDrawer = () => setDrawerOpen(false);
 
   const currentProducts = getProductsByCategory(selectedCategory);
   const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
@@ -293,6 +342,34 @@ const MainApp: React.FC = () => {
     }).format(price);
   };
 
+  const openSizeSelection = (product: any) => {
+    setSizeSelectProduct(product);
+    const defaultSize = product?.sizes?.find((s: any) => s.id === 'medium') || product?.sizes?.[0] || null;
+    setSelectedSizeId(defaultSize ? defaultSize.id : null);
+    setShowSizeDialog(true);
+  };
+
+  const closeSizeSelection = () => {
+    setShowSizeDialog(false);
+    setSizeSelectProduct(null);
+    setSelectedSizeId(null);
+  };
+
+  const handleAddProduct = (product: any) => {
+    if (product?.sizes && product.sizes.length > 0) {
+      openSizeSelection(product);
+    } else {
+      addToCart(product);
+    }
+  };
+
+  const SlideLeft = (props: any) => <Slide {...props} direction="left" />;
+  const showToast = (message: string, severity: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
+  };
+
       return (
       <Box sx={{ 
         display: 'flex', 
@@ -311,7 +388,7 @@ const MainApp: React.FC = () => {
       }}>
       {/* Header */}
       <AppBar position="static" elevation={0} sx={{ bgcolor: 'white', borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar sx={{ px: 3 }}>
+        <Toolbar sx={{ px: 3, position: 'relative' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', color: 'primary.main' }}>
             <Box
               component="img"
@@ -331,13 +408,15 @@ const MainApp: React.FC = () => {
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
-          
-          {/* Ürünler ve Masalar Butonları - Orta */}
+
+          {/* Ürünler ve Masalar Butonları - Yatayda tam ortalanmış */}
           <Box sx={{ 
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
             display: 'flex', 
             alignItems: 'center', 
-            gap: 2,
-            mr: 4
+            gap: 2
           }}>
             {/* Ürünler Butonu */}
             <Button
@@ -396,87 +475,17 @@ const MainApp: React.FC = () => {
             </Button>
           </Box>
           
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 2,
-            mr: 2 
-          }}>
-            {/* Saat */}
-            <Box sx={{ 
-              px: 2, 
-              py: 1, 
-              borderRadius: 3,
-              background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)',
-              color: 'white',
-              boxShadow: '0 2px 8px rgba(10, 73, 64, 0.3)'
-            }}>
-              <Typography variant="body2" sx={{ 
-                fontWeight: 600,
-                fontSize: '0.9rem'
-              }}>
-                                 🕐 {currentTime.toLocaleTimeString('tr-TR', { 
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit'
-                })}
-               </Typography>
-             </Box>
-             
-             {/* Tarih */}
-             <Box sx={{ 
-               px: 2, 
-               py: 1, 
-               borderRadius: 3,
-               bgcolor: 'white',
-               border: '2px solid #0a4940',
-               color: '#0a4940'
-             }}>
-               <Typography variant="body2" sx={{ 
-                 fontWeight: 600,
-                 fontSize: '0.9rem'
-               }}>
-                 📅 {currentTime.toLocaleDateString('tr-TR', { 
-                   day: 'numeric',
-                   month: 'short'
-                 })}
-              </Typography>
-            </Box>
-            
-            {/* ADMIN Dashboard Butonu */}
-            <Button
-              onClick={() => setShowDashboard(true)}
-              variant="contained"
-              startIcon={<AnalyticsIcon />}
-              sx={{
-                ml: 2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                fontWeight: 700,
-                px: 3,
-                py: 1,
-                borderRadius: 3,
-                textTransform: 'none',
-                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.6)',
-                },
-                transition: 'all 0.3s ease'
-              }}
-            >
-              ADMIN
-            </Button>
-
-            {/* Admin Panel Butonu */}
+          {/* Sağ üst hamburger menü */}
+          <Tooltip title="Menü">
             <IconButton
-              onClick={showAdminPanelDialog}
+              onClick={openHeaderDrawer}
               sx={{
                 ml: 2,
                 bgcolor: 'rgba(10, 73, 64, 0.1)',
                 color: '#0a4940',
                 border: '2px solid #0a4940',
+                width: 56,
+                height: 56,
                 '&:hover': {
                   bgcolor: '#0a4940',
                   color: 'white',
@@ -485,9 +494,52 @@ const MainApp: React.FC = () => {
                 transition: 'all 0.3s ease'
               }}
             >
-              <SettingsIcon />
+              <HamburgerIcon active={drawerOpen} />
             </IconButton>
-          </Box>
+          </Tooltip>
+
+          {/* Sağdan kayan yarı panel (Drawer) */}
+          <Drawer
+            anchor="right"
+            open={drawerOpen}
+            onClose={closeHeaderDrawer}
+            PaperProps={{
+              sx: {
+                width: { xs: '88vw', sm: 420 },
+                borderTopLeftRadius: 16,
+                borderBottomLeftRadius: 16,
+                background: 'linear-gradient(135deg, #ffffff 0%, #f6fbfa 100%)'
+              }
+            }}
+          >
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>Menü</Typography>
+                <IconButton onClick={closeHeaderDrawer}>
+                  <ClearIcon />
+                </IconButton>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, borderRadius: 2, bgcolor: 'grey.50', mb: 2 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>🕐 {currentTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>📅 {currentTime.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ mt: 1 }}>
+                <MenuItem onClick={() => { setShowDashboard(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2 }}>
+                  <ListItemIcon>
+                    <AnalyticsIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Admin Dashboard" />
+                </MenuItem>
+                <MenuItem onClick={() => { showAdminPanelDialog(); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2 }}>
+                  <ListItemIcon>
+                    <SettingsIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Ayarlar" />
+                </MenuItem>
+              </Box>
+            </Box>
+          </Drawer>
           {/* Header'daki çıkış butonunu kaldırdık */}
         </Toolbar>
       </AppBar>
@@ -675,7 +727,7 @@ const MainApp: React.FC = () => {
           // Normal Ürün Görünümü
           <Box sx={{ 
             display: 'grid', 
-            gridTemplateColumns: '2.2fr 1fr', 
+            gridTemplateColumns: '2fr 1.2fr', 
             gap: 4, 
             height: '100%' 
           }}>
@@ -918,7 +970,7 @@ const MainApp: React.FC = () => {
                         boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
                       }
                     }}
-                    onClick={() => addToCart(product)}
+                    onClick={() => handleAddProduct(product)}
                   >
                     {/* Ürün Görseli */}
                     <Box sx={{ 
@@ -1039,6 +1091,23 @@ const MainApp: React.FC = () => {
                         mb: 1
                       }}>
                         {product.name}
+                        {product?.sizes?.length ? (
+                          <Box component="span" sx={{
+                            ml: 0.75,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            px: 0.75,
+                            py: 0.1,
+                            borderRadius: 1,
+                            bgcolor: 'rgba(10,73,64,0.08)',
+                            color: 'primary.main',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                          }}>
+                            Boyut
+                            <ChevronRightIcon sx={{ ml: 0.25, fontSize: '1rem' }} />
+                          </Box>
+                        ) : null}
                       </Typography>
                       
                       <Box>
@@ -1051,7 +1120,7 @@ const MainApp: React.FC = () => {
                           {formatPrice(product.price)}
                         </Typography>
                         
-                        <Button
+                         <Button
                           fullWidth
                           variant="contained"
                           size="small"
@@ -1063,7 +1132,7 @@ const MainApp: React.FC = () => {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            addToCart(product);
+                             handleAddProduct(product);
                           }}
                         >
                           Ekle
@@ -1114,7 +1183,7 @@ const MainApp: React.FC = () => {
                 <List sx={{ p: 0 }}>
                   {cart.items.map((item) => (
                     <ListItem 
-                      key={item.product.id} 
+                      key={item.lineId} 
                       sx={{ 
                         p: 0, 
                         mb: 2,
@@ -1127,11 +1196,11 @@ const MainApp: React.FC = () => {
                       <Box sx={{ p: 2, width: '100%' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
                           <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
-                            {item.product.name}
+                            {item.product.name}{item.selectedSizeName ? ` (${item.selectedSizeName})` : ''}
                           </Typography>
                           <IconButton 
                             size="small" 
-                            onClick={() => removeFromCart(item.product.id)}
+                            onClick={() => removeFromCart(item.lineId)}
                             sx={{ color: 'error.main' }}
                           >
                             <DeleteIcon fontSize="small" />
@@ -1142,7 +1211,7 @@ const MainApp: React.FC = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <IconButton 
                               size="small"
-                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
                               sx={{ bgcolor: 'white', border: 1, borderColor: 'grey.300' }}
                             >
                               <RemoveIcon fontSize="small" />
@@ -1157,7 +1226,7 @@ const MainApp: React.FC = () => {
                             </Typography>
                             <IconButton 
                               size="small"
-                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
                               sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' } }}
                             >
                               <AddIcon fontSize="small" />
@@ -1165,7 +1234,7 @@ const MainApp: React.FC = () => {
                           </Box>
                           
                           <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                            {formatPrice(item.product.price * item.quantity)}
+                            {formatPrice((item.unitPrice ?? item.product.price) * item.quantity)}
                           </Typography>
                         </Box>
                       </Box>
@@ -1210,17 +1279,29 @@ const MainApp: React.FC = () => {
                     flex: 1,
                     py: 1.5,
                     fontSize: '1.1rem',
+                    fontWeight: 600,
                     background: cart.items.length > 0 
-                      ? 'linear-gradient(45deg, #0a4940 30%, #2e6b63 90%)'
-                      : 'linear-gradient(45deg, #ccc 30%, #ddd 90%)',
+                      ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 50%, #0a4940 100%)'
+                      : 'linear-gradient(135deg, #ccc 0%, #ddd 50%, #ccc 100%)',
+                    boxShadow: cart.items.length > 0 
+                      ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 10px rgba(0,0,0,0.1)'
+                      : '0 4px 10px rgba(0,0,0,0.1)',
+                    borderRadius: 3,
+                    textTransform: 'none',
                     '&:hover': {
                       background: cart.items.length > 0 
-                        ? 'linear-gradient(45deg, #053429 30%, #0a4940 90%)'
-                        : 'linear-gradient(45deg, #ccc 30%, #ddd 90%)',
+                        ? 'linear-gradient(135deg, #053429 0%, #0a4940 50%, #053429 100%)'
+                        : 'linear-gradient(135deg, #ccc 0%, #ddd 50%, #ccc 100%)',
+                      boxShadow: cart.items.length > 0 
+                        ? '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 15px rgba(0,0,0,0.15)'
+                        : '0 4px 10px rgba(0,0,0,0.1)',
+                      transform: 'translateY(-2px)'
                     },
                     '&:disabled': {
-                      color: 'rgba(255, 255, 255, 0.6)'
-                    }
+                      color: 'rgba(255, 255, 255, 0.6)',
+                      transform: 'none'
+                    },
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                   onClick={async () => {
                     try {
@@ -1243,10 +1324,10 @@ const MainApp: React.FC = () => {
                         createdAt: now.toISOString(),
                         items: cart.items.map((item: any) => ({
                           productId: item.product.id,
-                          productName: item.product.name,
+                          productName: item.product.name + (item.selectedSizeName ? ` (${item.selectedSizeName})` : ''),
                           quantity: item.quantity,
-                          unitPrice: item.product.price,
-                          totalPrice: item.product.price * item.quantity,
+                          unitPrice: item.unitPrice ?? item.product.price,
+                          totalPrice: (item.unitPrice ?? item.product.price) * item.quantity,
                           category: item.product.category
                         }))
                       };
@@ -1263,7 +1344,7 @@ const MainApp: React.FC = () => {
                       } else {
                         console.error('❌ Sepet satışı kaydedilemedi');
                       }
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('❌ Sepet ödeme hatası:', error);
                     }
                   }}
@@ -1275,27 +1356,52 @@ const MainApp: React.FC = () => {
                   variant="contained"
                   size="large"
                   disabled={cart.items.length === 0}
+                  startIcon={
+                    <Box
+                      component="img"
+                      src={require('./assets/Table.png')}
+                      alt="Masa"
+                      sx={{
+                        width: '24px',
+                        height: '24px',
+                        filter: 'brightness(0) invert(1)',
+                        opacity: 0.9
+                      }}
+                    />
+                  }
                   sx={{ 
                     flex: 1,
                     py: 1.5,
                     fontSize: '1.1rem',
+                    fontWeight: 600,
                     background: cart.items.length > 0 
-                      ? 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)'
-                      : 'linear-gradient(45deg, #ccc 30%, #ddd 90%)',
+                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%)'
+                      : 'linear-gradient(135deg, #ccc 0%, #ddd 50%, #ccc 100%)',
+                    boxShadow: cart.items.length > 0 
+                      ? '0 8px 25px rgba(102, 126, 234, 0.4), 0 4px 10px rgba(0,0,0,0.1)'
+                      : '0 4px 10px rgba(0,0,0,0.1)',
+                    borderRadius: 3,
+                    textTransform: 'none',
                     '&:hover': {
                       background: cart.items.length > 0 
-                        ? 'linear-gradient(45deg, #5a67d8 30%, #6b46c1 90%)'
-                        : 'linear-gradient(45deg, #ccc 30%, #ddd 90%)',
+                        ? 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 50%, #5a67d8 100%)'
+                        : 'linear-gradient(135deg, #ccc 0%, #ddd 50%, #ccc 100%)',
+                      boxShadow: cart.items.length > 0 
+                        ? '0 12px 35px rgba(102, 126, 234, 0.5), 0 6px 15px rgba(0,0,0,0.15)'
+                        : '0 4px 10px rgba(0,0,0,0.1)',
+                      transform: 'translateY(-2px)'
                     },
                     '&:disabled': {
-                      color: 'rgba(255, 255, 255, 0.6)'
-                    }
+                      color: 'rgba(255, 255, 255, 0.6)',
+                      transform: 'none'
+                    },
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                   onClick={() => {
                     setShowTableSelection(true);
                   }}
                 >
-                  🪑 Masaya
+                  Masaya
                 </Button>
               </Box>
               
@@ -1335,7 +1441,7 @@ const MainApp: React.FC = () => {
                           // isAddingToTable'ı sıfırla
                           setIsAddingToTable(null);
                         }
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error('Masaya sipariş ekleme hatası:', error);
                       }
                     }
@@ -1409,6 +1515,55 @@ const MainApp: React.FC = () => {
           currentValue={searchQuery}
         />
 
+          {/* Boyut Seçim Dialog */}
+          <Dialog
+            open={showSizeDialog}
+            onClose={closeSizeSelection}
+            maxWidth="xs"
+            fullWidth
+            PaperProps={{
+              sx: {
+                borderRadius: 3,
+              }
+            }}
+          >
+            <DialogTitle sx={{ fontWeight: 700 }}>Boyut Seçin</DialogTitle>
+            <DialogContent sx={{ pb: 0 }}>
+              {sizeSelectProduct && sizeSelectProduct.sizes && sizeSelectProduct.sizes.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {sizeSelectProduct.sizes.map((s: any) => (
+                    <Button
+                      key={s.id}
+                      variant={selectedSizeId === s.id ? 'contained' : 'outlined'}
+                      onClick={() => setSelectedSizeId(s.id)}
+                      sx={{ justifyContent: 'space-between' }}
+                    >
+                      <Typography sx={{ fontWeight: 600 }}>{s.name}</Typography>
+                      <Typography sx={{ fontWeight: 700, color: 'primary.main' }}>{formatPrice(s.price)}</Typography>
+                    </Button>
+                  ))}
+                </Box>
+              ) : (
+                <Typography>Bu ürün için boyut bulunmuyor.</Typography>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={closeSizeSelection} variant="outlined">İptal</Button>
+              <Button
+                onClick={() => {
+                  if (sizeSelectProduct && selectedSizeId) {
+                    addToCart(sizeSelectProduct, { sizeId: selectedSizeId });
+                    closeSizeSelection();
+                  }
+                }}
+                variant="contained"
+                disabled={!selectedSizeId}
+              >
+                Ekle
+              </Button>
+            </DialogActions>
+          </Dialog>
+
         {/* Masa Seçim Dialog */}
         <Dialog
           open={showTableSelection}
@@ -1433,19 +1588,19 @@ const MainApp: React.FC = () => {
           
           <DialogContent sx={{ p: 4 }}>
             {/* Sepet Özeti */}
-            <Box sx={{ mb: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                     <Box sx={{ mb: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
                 📋 Sipariş Özeti
               </Typography>
               <List sx={{ p: 0 }}>
                 {cart.items.map((item) => (
-                  <ListItem key={item.product.id} sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
+                  <ListItem key={item.lineId} sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {item.product.name} x{item.quantity}
+                        {item.product.name}{item.selectedSizeName ? ` (${item.selectedSizeName})` : ''} x{item.quantity}
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                        {formatPrice(item.product.price * item.quantity)}
+                        {formatPrice((item.unitPrice ?? item.product.price) * item.quantity)}
                       </Typography>
                     </Box>
                   </ListItem>
@@ -1456,7 +1611,7 @@ const MainApp: React.FC = () => {
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
                   Toplam Tutar:
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
                   {formatPrice(cart.total)}
                 </Typography>
               </Box>
@@ -1515,14 +1670,78 @@ const MainApp: React.FC = () => {
                     itemsCount: cart.items.length, 
                     total: cart.total 
                   });
+                  
+                  // Veri doğrulama
+                   if (!cart.items || cart.items.length === 0) {
+                     console.error('❌ Sepet boş, masa siparişi kaydedilemez');
+                     showToast('Sepet boş! Önce ürün ekleyin.', 'warning');
+                    return;
+                  }
+
+                   if (!selectedTableNumber || selectedTableNumber <= 0) {
+                     console.error('❌ Geçersiz masa numarası:', selectedTableNumber);
+                     showToast('Geçersiz masa numarası!', 'error');
+                    return;
+                  }
+
+                   if (cart.total <= 0) {
+                     console.error('❌ Geçersiz toplam tutar:', cart.total);
+                     showToast('Geçersiz toplam tutar!', 'error');
+                    return;
+                  }
+
+                  // Items yapısını kontrol et
+                  for (const item of cart.items) {
+                     if (!item.product || !item.product.id || !item.product.name || !item.product.price || !item.product.category) {
+                       console.error('❌ Geçersiz item yapısı:', item);
+                       showToast('Sepette geçersiz ürün var! Sepeti temizleyip deneyin.', 'error');
+                      return;
+                    }
+                  }
+
                   try {
                     const db = getDatabaseIPC();
                     console.log('📞 Database IPC servisi çağrılıyor...');
-                    const success = await db.saveTableOrder(selectedTableNumber, cart.items, cart.total);
+                    
+                    // Retry mekanizması ile işlemi dene
+                    let success = false;
+                    let retryCount = 0;
+                    const maxRetries = 3;
+                    
+                    while (!success && retryCount < maxRetries) {
+                      try {
+                        // Timeout ile işlemi sınırla
+                        const timeoutPromise = new Promise((_, reject) => {
+                          setTimeout(() => reject(new Error('İşlem zaman aşımına uğradı')), 10000);
+                        });
+                        
+                        const savePromise = db.saveTableOrder(selectedTableNumber, cart.items, cart.total);
+                        success = await Promise.race([savePromise, timeoutPromise]) as boolean;
+                        
+                        if (success) {
+                          console.log('✅ Masa siparişi başarıyla kaydedildi');
+                          break;
+                        } else {
+                          console.warn(`⚠️ Deneme ${retryCount + 1} başarısız, tekrar deneniyor...`);
+                          retryCount++;
+                          if (retryCount < maxRetries) {
+                            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
+                          }
+                        }
+                      } catch (error: any) {
+                        console.error(`❌ Deneme ${retryCount + 1} hatası:`, error);
+                        retryCount++;
+                        if (retryCount < maxRetries) {
+                          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
+                        } else {
+                          throw error;
+                        }
+                      }
+                    }
+                    
                     console.log('📞 Database IPC servisi yanıtı:', success);
                     
                     if (success) {
-                      console.log('✅ Masa siparişi başarıyla kaydedildi');
                       // State'i güncelle
                       setTableOrders(prev => ({
                         ...prev,
@@ -1537,12 +1756,30 @@ const MainApp: React.FC = () => {
                       // Dialog'u kapat
                       setShowTableSelection(false);
                       setSelectedTableNumber(null);
+                      // Modern toast
+                      showToast(`Masa ${selectedTableNumber} için sipariş kaydedildi`, 'success');
                     } else {
-                      console.error('❌ Masa siparişi kaydedilemedi - success false döndü');
+                      console.error('❌ Masa siparişi kaydedilemedi - tüm denemeler başarısız');
+                      showToast('Masa siparişi kaydedilemedi! Tekrar deneyin.', 'error');
                     }
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('❌ Masa siparişi kaydetme hatası:', error);
                     console.error('❌ Hata detayı:', error.message);
+                    
+                    let errorMessage = 'Bilinmeyen hata';
+                    if (error.message) {
+                      if (error.message.includes('timeout')) {
+                        errorMessage = 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.';
+                      } else if (error.message.includes('network')) {
+                        errorMessage = 'Ağ bağlantısı hatası. Lütfen internet bağlantınızı kontrol edin.';
+                      } else if (error.message.includes('database')) {
+                        errorMessage = 'Veritabanı hatası. Lütfen uygulamayı yeniden başlatın.';
+                      } else {
+                        errorMessage = error.message;
+                      }
+                    }
+                    
+                    showToast(`Hata: ${errorMessage}`, 'error');
                   }
                 }
               }}
@@ -1609,7 +1846,7 @@ const MainApp: React.FC = () => {
                         filter: 'drop-shadow(0 2px 4px rgba(10, 73, 64, 0.2))'
                       }}
                     />
-                    <Typography variant="h5" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
                       Bu Masa Boş
                     </Typography>
                     <Typography variant="body1" sx={{ color: 'text.secondary' }}>
@@ -1620,7 +1857,12 @@ const MainApp: React.FC = () => {
               }
               
               // Masa dolu ise
-              const elapsedMinutes = Math.floor((new Date().getTime() - tableOrder.startTime.getTime()) / (1000 * 60));
+              const ms = currentTime.getTime() - tableOrder.startTime.getTime();
+              const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+              const hours = Math.floor(totalSeconds / 3600);
+              const minutes = Math.floor((totalSeconds % 3600) / 60);
+              const seconds = totalSeconds % 60;
+              const pad = (n: number) => String(n).padStart(2, '0');
               
               return (
                 <Box>
@@ -1637,12 +1879,12 @@ const MainApp: React.FC = () => {
                         {formatPrice(tableOrder.total)}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        Aktif Süre:
+                         Aktif Süre:
                       </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                        {elapsedMinutes} dakika
+                       <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                         {pad(hours)}:{pad(minutes)}:{pad(seconds)}
                       </Typography>
                     </Box>
                   </Box>
@@ -1654,18 +1896,18 @@ const MainApp: React.FC = () => {
                     </Typography>
                     <List sx={{ p: 0 }}>
                       {tableOrder.items.map((item) => (
-                        <ListItem key={item.product.id} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}>
+                        <ListItem key={item.lineId ?? item.product.id} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                             <Box>
                               <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                                {item.product.name}
+                                {item.product.name}{item.selectedSizeName ? ` (${item.selectedSizeName})` : ''}
                               </Typography>
                               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                 {item.quantity} adet
                               </Typography>
                             </Box>
                             <Typography variant="body1" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                              {formatPrice(item.product.price * item.quantity)}
+                              {formatPrice((item.unitPrice ?? item.product.price) * item.quantity)}
                             </Typography>
                           </Box>
                         </ListItem>
@@ -1711,10 +1953,10 @@ const MainApp: React.FC = () => {
                         createdAt: now.toISOString(),
                         items: tableOrder.items.map((item: any) => ({
                           productId: item.product.id,
-                          productName: item.product.name,
+                          productName: item.product.name + (item.selectedSizeName ? ` (${item.selectedSizeName})` : ''),
                           quantity: item.quantity,
-                          unitPrice: item.product.price,
-                          totalPrice: item.product.price * item.quantity,
+                          unitPrice: item.unitPrice ?? item.product.price,
+                          totalPrice: (item.unitPrice ?? item.product.price) * item.quantity,
                           category: item.product.category
                         }))
                       };
@@ -1749,7 +1991,7 @@ const MainApp: React.FC = () => {
                       } else {
                         console.error('❌ Satış kaydedilemedi');
                       }
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('❌ Masa ödeme hatası:', error);
                     }
                   }}
@@ -1827,6 +2069,29 @@ const MainApp: React.FC = () => {
             )}
           </IconButton>
         </Box>
+      {/* Modern toast bildirimleri */}
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={2200}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        TransitionComponent={SlideLeft}
+      >
+        <Alert
+          onClose={() => setToastOpen(false)}
+          severity={toastSeverity}
+          variant="filled"
+          sx={{
+            borderRadius: 2,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
+            background: toastSeverity === 'success' ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)' : undefined,
+            color: 'white',
+            '& .MuiAlert-icon': { color: 'white' }
+          }}
+        >
+          {toastMessage}
+        </Alert>
+      </Snackbar>
       </Box>
     );
   };

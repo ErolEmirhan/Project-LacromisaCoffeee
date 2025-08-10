@@ -7,6 +7,8 @@ import {
   Slide
 } from '@mui/material';
 import { useStore } from '../store/useStore';
+import { IconButton } from '@mui/material';
+import { Fullscreen, FullscreenExit } from '@mui/icons-material';
 
 // Logo import - bu şekilde webpack handle eder
 let logoUrl: string;
@@ -22,6 +24,7 @@ const SplashScreen: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [showContent, setShowContent] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
 
   // Yükleme adımları
   const loadingSteps = [
@@ -35,42 +38,54 @@ const SplashScreen: React.FC = () => {
   ];
 
   useEffect(() => {
-    // İçeriği göster
     setShowContent(true);
-
-    // Progress ve step güncellemeleri
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        const newProgress = prev + 2;
-        if (newProgress >= 100) {
-          clearInterval(progressInterval);
-          // Biraz bekle sonra ana uygulamaya geç
-          setTimeout(() => {
-            completeSplashScreen();
-          }, 800);
-          return 100;
-        }
-        return newProgress;
-      });
-    }, 80); // 4 saniyede 100%
-
-    // Adım güncellemeleri
+    const durationMs = 3000;
+    let rafId: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = Math.min(durationMs, now - start);
+      const pct = Math.round((elapsed / durationMs) * 100);
+      setProgress(pct);
+      if (elapsed < durationMs) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        setTimeout(() => completeSplashScreen(), 250);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
     const stepInterval = setInterval(() => {
-      setCurrentStep(prev => {
-        const newStep = prev + 1;
-        if (newStep >= loadingSteps.length) {
-          clearInterval(stepInterval);
-          return loadingSteps.length - 1;
-        }
-        return newStep;
-      });
-    }, 600); // Her 0.6 saniyede yeni adım
-
+      setCurrentStep(prev => Math.min(prev + 1, loadingSteps.length - 1));
+    }, 400);
     return () => {
-      clearInterval(progressInterval);
+      cancelAnimationFrame(rafId);
       clearInterval(stepInterval);
     };
   }, [completeSplashScreen, loadingSteps.length]);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        // @ts-ignore
+        const fullscreen = await window.electronAPI?.isFullscreen?.();
+        if (typeof fullscreen === 'boolean') setIsFullscreen(fullscreen);
+      } catch {}
+    };
+    check();
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      // @ts-ignore
+      await window.electronAPI?.toggleFullscreen?.();
+      setTimeout(async () => {
+        try {
+          // @ts-ignore
+          const fullscreen = await window.electronAPI?.isFullscreen?.();
+          if (typeof fullscreen === 'boolean') setIsFullscreen(fullscreen);
+        } catch {}
+      }, 100);
+    } catch {}
+  };
 
   return (
     <Box sx={{
@@ -91,19 +106,42 @@ const SplashScreen: React.FC = () => {
       overflow: 'hidden',
       zIndex: 9999
     }}>
-      {/* Animated background particles */}
-      {[...Array(12)].map((_, i) => (
+      {/* Tam ekran toggle - sağ alt (ana ekranla aynı konum) */}
+      <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10000 }}>
+        <IconButton
+          onClick={toggleFullscreen}
+          size="large"
+          sx={{
+            bgcolor: 'primary.main',
+            color: 'white',
+            width: 60,
+            height: 60,
+            boxShadow: '0 4px 20px rgba(10, 73, 64, 0.3)',
+            '&:hover': {
+              bgcolor: 'primary.dark',
+              transform: 'scale(1.05)',
+              boxShadow: '0 6px 25px rgba(10, 73, 64, 0.4)',
+            },
+            transition: 'all 0.3s ease',
+            border: '3px solid white'
+          }}
+        >
+          {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
+        </IconButton>
+      </Box>
+      {/* Arka plan ışık parçacıkları */}
+      {[...Array(14)].map((_, i) => (
         <Box
           key={i}
           sx={{
             position: 'absolute',
-            width: `${Math.random() * 8 + 4}px`,
-            height: `${Math.random() * 8 + 4}px`,
+            width: `${Math.random() * 10 + 6}px`,
+            height: `${Math.random() * 10 + 6}px`,
             borderRadius: '50%',
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
-            animation: `float${i % 3} ${3 + Math.random() * 4}s infinite ease-in-out`,
+            animation: `float${i % 3} ${3.5 + Math.random() * 3.5}s infinite ease-in-out`,
             '@keyframes float0': {
               '0%, 100%': { transform: 'translateY(0px) scale(1)', opacity: 0.3 },
               '50%': { transform: 'translateY(-30px) scale(1.2)', opacity: 0.8 }
@@ -159,10 +197,20 @@ const SplashScreen: React.FC = () => {
         ))}
       </Box>
 
-      <Fade in={showContent} timeout={800}>
-        <Box sx={{ textAlign: 'center', maxWidth: '600px', px: 4 }}>
+      <Fade in={showContent} timeout={600}>
+        <Box sx={{
+          textAlign: 'center',
+          maxWidth: '680px',
+          px: 4,
+          py: 5,
+          borderRadius: 6,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06))',
+          backdropFilter: 'blur(18px)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.28)',
+          border: '1px solid rgba(255,255,255,0.35)'
+        }}>
           {/* Ana Logo */}
-          <Slide direction="up" in={showContent} timeout={1000}>
+          <Slide direction="up" in={showContent} timeout={900}>
             <Box sx={{
               mb: 4,
               animation: 'logoEnter 1.5s ease-out',
@@ -244,25 +292,21 @@ const SplashScreen: React.FC = () => {
             </Box>
           </Fade>
 
-          {/* Progress Bar */}
-          <Fade in={showContent} timeout={1000} style={{ transitionDelay: '0.6s' }}>
+          {/* Progress Bar - 3 sn */}
+          <Fade in={showContent} timeout={800} style={{ transitionDelay: '0.45s' }}>
             <Box sx={{ mb: 3, width: '100%' }}>
               <LinearProgress 
                 variant="determinate" 
                 value={progress} 
                 sx={{
-                  height: 12,
-                  borderRadius: 6,
-                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  height: 14,
+                  borderRadius: 8,
+                  background: 'rgba(255,255,255,0.15)',
                   '& .MuiLinearProgress-bar': {
-                    borderRadius: 6,
-                    background: 'linear-gradient(90deg, #4caf50 0%, #81c784 50%, #ffffff 100%)',
-                    boxShadow: '0 0 20px rgba(76, 175, 80, 0.6)',
-                    animation: 'progressGlow 2s ease-in-out infinite alternate',
-                    '@keyframes progressGlow': {
-                      '0%': { boxShadow: '0 0 10px rgba(76, 175, 80, 0.4)' },
-                      '100%': { boxShadow: '0 0 25px rgba(76, 175, 80, 0.8)' }
-                    }
+                    borderRadius: 8,
+                    background: 'linear-gradient(90deg, #00c853 0%, #1de9b6 50%, #69f0ae 100%)',
+                    boxShadow: '0 0 24px rgba(0, 200, 83, 0.55)',
+                    animation: 'progressGlow 1.6s ease-in-out infinite alternate',
                   }
                 }}
               />
@@ -281,14 +325,14 @@ const SplashScreen: React.FC = () => {
                   color: 'rgba(255,255,255,0.8)',
                   fontSize: '0.9rem'
                 }}>
-                  {progress < 100 ? 'Yükleniyor...' : 'Tamamlandı!'}
+                   {progress < 100 ? 'Yükleniyor...' : 'Hazır!'}
                 </Typography>
               </Box>
             </Box>
           </Fade>
 
           {/* Loading Steps */}
-          <Fade in={showContent} timeout={1000} style={{ transitionDelay: '0.9s' }}>
+          <Fade in={showContent} timeout={900} style={{ transitionDelay: '0.75s' }}>
             <Box sx={{ mb: 4, minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="h6" sx={{ 
                 color: 'white',
@@ -308,7 +352,7 @@ const SplashScreen: React.FC = () => {
           </Fade>
 
           {/* Fun Loading Dots */}
-          <Fade in={showContent} timeout={1000} style={{ transitionDelay: '1.2s' }}>
+          <Fade in={showContent} timeout={800} style={{ transitionDelay: '0.95s' }}>
             <Box sx={{ 
               display: 'flex', 
               alignItems: 'center',

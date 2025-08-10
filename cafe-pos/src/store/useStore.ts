@@ -177,12 +177,16 @@ interface StoreState {
     totalAmount: number;
     paymentMethod: string;
   } | null;
+
+  // Loading/Splash Progress
+  loadingProgress: number;
+  dataLoaded: boolean;
   
   // Actions
   setSelectedCategory: (categoryId: string) => void;
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, options?: { sizeId?: string }) => void;
+  removeFromCart: (lineId: string) => void;
+  updateQuantity: (lineId: string, quantity: number) => void;
   clearCart: () => void;
   getProductsByCategory: (categoryId: string) => Product[];
   calculateTotal: () => number;
@@ -204,6 +208,7 @@ interface StoreState {
   
   // Data Loading
   loadData: () => Promise<void>;
+  setLoadingProgress: (progress: number) => void;
   
   // Sales
   saveSale: (paymentMethod: 'cash' | 'card' | 'mixed', cashAmount?: number, cardAmount?: number) => Promise<void>;
@@ -266,25 +271,56 @@ export const useStore = create<StoreState>((set, get) => {
     // Receipt Preview state
     showReceiptPreview: false,
     receiptData: null,
+
+    // Loading/Splash
+    loadingProgress: 0,
+    dataLoaded: false,
   
   // Actions
   setSelectedCategory: (categoryId) => set({ selectedCategory: categoryId }),
+
+  setLoadingProgress: (progress: number) => set({ loadingProgress: Math.max(0, Math.min(100, progress)) }),
   
-  addToCart: (product) => set((state) => {
-    const existingItem = state.cart.items.find(item => item.product.id === product.id);
-    
-    let newItems;
+  addToCart: (product, options) => set((state) => {
+    const sizeId = options?.sizeId;
+    const selectedSize = sizeId && product.sizes ? product.sizes.find(s => s.id === sizeId) : undefined;
+    const unitPrice = selectedSize ? selectedSize.price : product.price;
+    const lineId = `${product.id}${selectedSize ? `__${selectedSize.id}` : ''}`;
+
+    const existingItem = state.cart.items.find(item => item.lineId === lineId);
+
+    let newItems: CartItem[];
     if (existingItem) {
       newItems = state.cart.items.map(item =>
-        item.product.id === product.id
+        item.lineId === lineId
           ? { ...item, quantity: item.quantity + 1 }
           : item
       );
     } else {
-      newItems = [...state.cart.items, { product, quantity: 1 }];
+      const newItem: CartItem = {
+        lineId,
+        product,
+        quantity: 1,
+        unitPrice,
+        selectedSizeId: selectedSize?.id,
+        selectedSizeName: selectedSize?.name,
+      };
+      newItems = [...state.cart.items, newItem];
     }
-    
-    const newTotal = newItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+    const newTotal = newItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+
+    return {
+      cart: {
+        items: newItems,
+        total: newTotal
+      }
+    };
+  }),
+  
+  removeFromCart: (lineId) => set((state) => {
+    const newItems = state.cart.items.filter(item => item.lineId !== lineId);
+    const newTotal = newItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
     
     return {
       cart: {
@@ -294,32 +330,20 @@ export const useStore = create<StoreState>((set, get) => {
     };
   }),
   
-  removeFromCart: (productId) => set((state) => {
-    const newItems = state.cart.items.filter(item => item.product.id !== productId);
-    const newTotal = newItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-    
-    return {
-      cart: {
-        items: newItems,
-        total: newTotal
-      }
-    };
-  }),
-  
-  updateQuantity: (productId, quantity) => set((state) => {
+  updateQuantity: (lineId, quantity) => set((state) => {
     let newItems;
     
     if (quantity <= 0) {
-      newItems = state.cart.items.filter(item => item.product.id !== productId);
+      newItems = state.cart.items.filter(item => item.lineId !== lineId);
     } else {
       newItems = state.cart.items.map(item =>
-        item.product.id === productId
+        item.lineId === lineId
           ? { ...item, quantity }
           : item
       );
     }
     
-    const newTotal = newItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    const newTotal = newItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
     
     return {
       cart: {
@@ -337,7 +361,7 @@ export const useStore = create<StoreState>((set, get) => {
   
   calculateTotal: () => {
     const { cart } = get();
-    return cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    return cart.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   },
   
   // Auth Actions
@@ -439,14 +463,14 @@ export const useStore = create<StoreState>((set, get) => {
   setPaymentMode: (mode) => set((state) => ({
     paymentMode: mode,
     splitItemsPayment: mode === 'split-items' ? 
-      state.cart.items.map(item => ({ itemId: item.product.id, paid: false })) : [],
+      state.cart.items.map(item => ({ itemId: item.lineId, paid: false })) : [],
     mixedPayment: mode === 'mixed' ? 
       { cashAmount: 0, cardAmount: 0, totalAmount: state.paymentAmount } : 
       { cashAmount: 0, cardAmount: 0, totalAmount: 0 }
   })),
 
   initializeSplitPayment: () => set((state) => ({
-    splitItemsPayment: state.cart.items.map(item => ({ itemId: item.product.id, paid: false }))
+    splitItemsPayment: state.cart.items.map(item => ({ itemId: item.lineId, paid: false }))
   })),
 
   markItemAsPaid: (itemId) => set((state) => ({
@@ -535,18 +559,59 @@ export const useStore = create<StoreState>((set, get) => {
     // Verileri yükle
     loadData: async () => {
       try {
+        if (get().dataLoaded) {
+          set({ loadingProgress: 100 });
+          return;
+        }
+        set({ loadingProgress: 5 });
         const db = getDatabaseIPC();
+        set({ loadingProgress: 10 });
         const [loadedCategories, loadedProducts, loadedPassword] = await Promise.all([
           db.getCategories(),
           db.getProducts(),
           db.loadPassword()
         ]);
-        
+        set({ loadingProgress: 70 });
+        // Boyut migrasyonu: Veritabanından gelen ürünlerde sizes yoksa bazı bilinen ürünlere default sizes ekle
+        const migratedProducts = (loadedProducts.length > 0 ? loadedProducts : products).map((p) => {
+          if (p.sizes && p.sizes.length > 0) return p;
+          switch (p.id) {
+            case 'p5': // Latte
+              return { ...p, sizes: [
+                { id: 'small', name: 'Küçük', price: 32 },
+                { id: 'medium', name: 'Orta', price: 35 },
+                { id: 'large', name: 'Büyük', price: 39 },
+              ] };
+            case 'p6': // Americano
+              return { ...p, sizes: [
+                { id: 'small', name: 'Küçük', price: 22 },
+                { id: 'medium', name: 'Orta', price: 25 },
+                { id: 'large', name: 'Büyük', price: 28 },
+              ] };
+            case 'p22': // Ice Latte
+              return { ...p, sizes: [
+                { id: 'small', name: 'Küçük', price: 35 },
+                { id: 'medium', name: 'Orta', price: 38 },
+                { id: 'large', name: 'Büyük', price: 42 },
+              ] };
+            case 'p26': // Limonata
+              return { ...p, sizes: [
+                { id: 'small', name: 'Küçük', price: 20 },
+                { id: 'medium', name: 'Orta', price: 22 },
+                { id: 'large', name: 'Büyük', price: 26 },
+              ] };
+            default:
+              return p;
+          }
+        });
+
         set({
           categories: loadedCategories.length > 0 ? loadedCategories : categories,
-          products: loadedProducts.length > 0 ? loadedProducts : products,
-          currentPassword: loadedPassword || DEFAULT_CASHIER_PASSWORD
+          products: migratedProducts,
+          currentPassword: loadedPassword || DEFAULT_CASHIER_PASSWORD,
+          loadingProgress: 95
         });
+        set({ loadingProgress: 100, dataLoaded: true });
         
         console.log('✅ Veriler başarıyla yüklendi:', {
           categories: loadedCategories.length,
@@ -555,6 +620,7 @@ export const useStore = create<StoreState>((set, get) => {
         });
       } catch (error) {
         console.error('❌ Veri yükleme hatası:', error);
+        set({ loadingProgress: 100 });
       }
          },
      
@@ -575,10 +641,10 @@ export const useStore = create<StoreState>((set, get) => {
            cardAmount,
            items: state.cart.items.map(item => ({
              productId: item.product.id,
-             productName: item.product.name,
+             productName: item.product.name + (item.selectedSizeName ? ` (${item.selectedSizeName})` : ''),
              quantity: item.quantity,
-             unitPrice: item.product.price,
-             totalPrice: item.product.price * item.quantity,
+             unitPrice: item.unitPrice,
+             totalPrice: item.unitPrice * item.quantity,
              category: item.product.category
            })),
            createdAt: now.toISOString()

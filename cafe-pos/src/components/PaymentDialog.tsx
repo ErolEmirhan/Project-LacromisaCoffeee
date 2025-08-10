@@ -272,10 +272,10 @@ const PaymentDialog: React.FC = () => {
           }}>
             <PaymentIcon sx={{ fontSize: '2rem', color: 'primary.dark' }} />
           </Box>
-          <Typography variant="h4" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
             Ödeme Yöntemi Seçin
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
             {formatPrice(paymentAmount)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -374,7 +374,7 @@ const PaymentDialog: React.FC = () => {
             Geri
           </Button>
           <Box sx={{ flex: 1, textAlign: 'center' }}>
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Ödeme Yöntemi Seçin
             </Typography>
             <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.main' }}>
@@ -478,7 +478,7 @@ const PaymentDialog: React.FC = () => {
             Geri
           </Button>
           <Box sx={{ flex: 1, textAlign: 'center' }}>
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Ayrı Hesap Ödemesi
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -634,7 +634,7 @@ const PaymentDialog: React.FC = () => {
             Geri
           </Button>
           <Box sx={{ flex: 1, textAlign: 'center' }}>
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Karma Ödeme
             </Typography>
             <Typography variant="body2" color="text.secondary">

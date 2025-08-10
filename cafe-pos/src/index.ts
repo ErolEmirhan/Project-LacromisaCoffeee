@@ -474,7 +474,7 @@ ipcMain.handle('db-get-active-table-orders', async () => {
     const db = getDatabase();
     console.log('📊 Database instance alındı');
     const result = db.getActiveTableOrders();
-    console.log('✅ Aktif masa siparişleri alındı:', result);
+    console.log('✅ Aktif masa siparişleri alındı:', Object.keys(result).length, 'masa');
     return result;
   } catch (error) {
     console.error('❌ Database get active table orders error:', error);
@@ -482,15 +482,25 @@ ipcMain.handle('db-get-active-table-orders', async () => {
   }
 });
 
-console.log('🔧 IPC Handlers kaydediliyor...');
-console.log('🔧 db-get-active-table-orders handler kaydedildi');
-console.log('🔧 db-save-table-order handler kaydedildi');
-console.log('🔧 db-add-to-table-order handler kaydedildi');
-console.log('🔧 db-close-table-order handler kaydedildi');
-
 ipcMain.handle('db-save-table-order', async (event, tableNumber, items, total) => {
-  console.log('🔄 IPC Handler çağrıldı: db-save-table-order', { tableNumber, itemsCount: items.length, total });
+  console.log('🔄 IPC Handler çağrıldı: db-save-table-order', { tableNumber, itemsCount: items?.length || 0, total });
   try {
+    // Veri doğrulama
+    if (!tableNumber || tableNumber <= 0) {
+      console.error('❌ Geçersiz masa numarası:', tableNumber);
+      return false;
+    }
+
+    if (!items || items.length === 0) {
+      console.error('❌ Sipariş öğeleri boş');
+      return false;
+    }
+
+    if (!total || total <= 0) {
+      console.error('❌ Geçersiz toplam tutar:', total);
+      return false;
+    }
+
     const db = getDatabase();
     const result = db.saveTableOrder(tableNumber, items, total);
     console.log('✅ Masa siparişi kaydedildi:', result);
@@ -502,21 +512,55 @@ ipcMain.handle('db-save-table-order', async (event, tableNumber, items, total) =
 });
 
 ipcMain.handle('db-add-to-table-order', async (event, tableNumber, items, total) => {
+  console.log('🔄 IPC Handler çağrıldı: db-add-to-table-order', { tableNumber, itemsCount: items?.length || 0, total });
   try {
+    // Veri doğrulama
+    if (!tableNumber || tableNumber <= 0) {
+      console.error('❌ Geçersiz masa numarası:', tableNumber);
+      return false;
+    }
+
+    if (!items || items.length === 0) {
+      console.error('❌ Sipariş öğeleri boş');
+      return false;
+    }
+
+    if (!total || total <= 0) {
+      console.error('❌ Geçersiz toplam tutar:', total);
+      return false;
+    }
+
     const db = getDatabase();
-    return db.addToTableOrder(tableNumber, items, total);
+    const result = db.addToTableOrder(tableNumber, items, total);
+    console.log('✅ Masaya sipariş eklendi:', result);
+    return result;
   } catch (error) {
-    console.error('Database add to table order error:', error);
+    console.error('❌ Database add to table order error:', error);
     return false;
   }
 });
 
 ipcMain.handle('db-close-table-order', async (event, tableNumber) => {
+  console.log('🔄 IPC Handler çağrıldı: db-close-table-order', { tableNumber });
   try {
+    // Veri doğrulama
+    if (!tableNumber || tableNumber <= 0) {
+      console.error('❌ Geçersiz masa numarası:', tableNumber);
+      return false;
+    }
+
     const db = getDatabase();
-    return db.closeTableOrder(tableNumber);
+    const result = db.closeTableOrder(tableNumber);
+    console.log('✅ Masa siparişi kapatıldı:', result);
+    return result;
   } catch (error) {
-    console.error('Database close table order error:', error);
+    console.error('❌ Database close table order error:', error);
     return false;
   }
 });
+
+console.log('🔧 IPC Handlers kaydediliyor...');
+console.log('🔧 db-get-active-table-orders handler kaydedildi');
+console.log('🔧 db-save-table-order handler kaydedildi');
+console.log('🔧 db-add-to-table-order handler kaydedildi');
+console.log('🔧 db-close-table-order handler kaydedildi');

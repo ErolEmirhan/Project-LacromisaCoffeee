@@ -284,7 +284,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ open, onClose }) => {
           py: 3 
         }}>
           <SettingsIcon sx={{ fontSize: '2rem' }} />
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Admin Paneli
           </Typography>
         </DialogTitle>

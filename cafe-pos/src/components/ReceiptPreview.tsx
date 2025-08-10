@@ -99,7 +99,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
         }}>
           <ReceiptIcon sx={{ fontSize: '2rem', color: 'success.dark' }} />
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
           Ödeme Başarılı!
         </Typography>
         <Typography variant="body2" color="text.secondary">

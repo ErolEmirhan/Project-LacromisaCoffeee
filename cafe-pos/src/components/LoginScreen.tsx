@@ -5,8 +5,10 @@ import {
   Button,
   Paper,
   Alert,
-  Snackbar
+  Snackbar,
+  IconButton
 } from '@mui/material';
+import { Fullscreen, FullscreenExit } from '@mui/icons-material';
 import {
   Lock as LockIcon,
   Backspace as BackspaceIcon,
@@ -45,6 +47,33 @@ const LoginScreen: React.FC = () => {
     ['0']
   ];
 
+  const [isFullscreen, setIsFullscreen] = React.useState(true);
+
+  React.useEffect(() => {
+    const check = async () => {
+      try {
+        // @ts-ignore
+        const fullscreen = await window.electronAPI?.isFullscreen?.();
+        if (typeof fullscreen === 'boolean') setIsFullscreen(fullscreen);
+      } catch {}
+    };
+    check();
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      // @ts-ignore
+      await window.electronAPI?.toggleFullscreen?.();
+      setTimeout(async () => {
+        try {
+          // @ts-ignore
+          const fullscreen = await window.electronAPI?.isFullscreen?.();
+          if (typeof fullscreen === 'boolean') setIsFullscreen(fullscreen);
+        } catch {}
+      }, 100);
+    } catch {}
+  };
+
   return (
     <Box sx={{
       position: 'fixed',
@@ -63,6 +92,29 @@ const LoginScreen: React.FC = () => {
       overflow: 'hidden',
       zIndex: 9999
     }}>
+      {/* Tam ekran toggle - sağ alt (ana ekranla aynı konum) */}
+      <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10000 }}>
+        <IconButton
+          onClick={toggleFullscreen}
+          size="large"
+          sx={{
+            bgcolor: 'primary.main',
+            color: 'white',
+            width: 60,
+            height: 60,
+            boxShadow: '0 4px 20px rgba(10, 73, 64, 0.3)',
+            '&:hover': {
+              bgcolor: 'primary.dark',
+              transform: 'scale(1.05)',
+              boxShadow: '0 6px 25px rgba(10, 73, 64, 0.4)',
+            },
+            transition: 'all 0.3s ease',
+            border: '3px solid white'
+          }}
+        >
+          {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
+        </IconButton>
+      </Box>
       {/* Arka plan dekoratif elemanlar */}
       <Box sx={{
         position: 'absolute',

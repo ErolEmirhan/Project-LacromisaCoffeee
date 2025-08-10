@@ -6,6 +6,12 @@ export interface Product {
   category: string;
   image?: string;
   description?: string;
+  // Opsiyonel boyutlar (ör. Küçük/Orta/Büyük)
+  sizes?: Array<{
+    id: string;      // 'small' | 'medium' | 'large' gibi
+    name: string;    // Görünen ad: 'Küçük', 'Orta', 'Büyük'
+    price: number;   // Bu boyutun fiyatı
+  }>;
 }
 
 // Kategori tipi
@@ -17,8 +23,13 @@ export interface Category {
 
 // Sepet item tipi
 export interface CartItem {
+  // Aynı ürünün farklı boyutlarını ayırmak için benzersiz satır anahtarı
+  lineId: string;
   product: Product;
   quantity: number;
+  unitPrice: number;
+  selectedSizeId?: string;
+  selectedSizeName?: string;
 }
 
 // Sepet tipi
@@ -45,10 +56,10 @@ export interface Sale {
 // Satış item tipi
 export interface SaleItem {
   productId: string;
-  productName: string;
+  productName: string; // Boyut varsa: "Latte (Büyük)"
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  unitPrice: number;   // Seçilen boyutun fiyatı
+  totalPrice: number;  // quantity * unitPrice
   category: string;
 }
 
