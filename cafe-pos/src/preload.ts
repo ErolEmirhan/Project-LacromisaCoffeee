@@ -50,7 +50,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getActiveTableOrders: () => ipcRenderer.invoke('db-get-active-table-orders'),
     saveTableOrder: (tableNumber: number, items: any[], total: number) => ipcRenderer.invoke('db-save-table-order', tableNumber, items, total),
     addToTableOrder: (tableNumber: number, items: any[], total: number) => ipcRenderer.invoke('db-add-to-table-order', tableNumber, items, total),
-    closeTableOrder: (tableNumber: number) => ipcRenderer.invoke('db-close-table-order', tableNumber)
+    closeTableOrder: (tableNumber: number) => ipcRenderer.invoke('db-close-table-order', tableNumber),
+
+    // Müşteri işlemleri
+    getCustomers: () => ipcRenderer.invoke('db-get-customers'),
+    addCustomer: (name: string, phone?: string) => ipcRenderer.invoke('db-add-customer', name, phone)
   }
 });
 

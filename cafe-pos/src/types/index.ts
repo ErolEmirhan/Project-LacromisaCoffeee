@@ -101,3 +101,12 @@ export interface DashboardStats {
     mixed: { count: number; amount: number };
   };
 } 
+
+// Müşteri tipi
+export interface Customer {
+  id: number;
+  name: string;
+  phone?: string;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -52,7 +52,8 @@ import {
 } from '@mui/icons-material';
 // Removed default MenuIcon in favor of custom modern hamburger
 import { useStore } from './store/useStore';
-import { CartItem } from './types';
+import { CartItem, Customer } from './types';
+import { Person as PersonIcon, Loyalty as LoyaltyIcon } from '@mui/icons-material';
 import { getDatabaseIPC } from './services/database-ipc';
 import LoginScreen from './components/LoginScreen';
 import SplashScreen from './components/SplashScreen';
@@ -218,6 +219,11 @@ const MainApp: React.FC = () => {
   const [toastOpen, setToastOpen] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
   const [toastSeverity, setToastSeverity] = React.useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [showCustomers, setShowCustomers] = React.useState(false);
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [addCustomerOpen, setAddCustomerOpen] = React.useState(false);
+  const [newCustomerName, setNewCustomerName] = React.useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
 
   // Verileri uygulama başlarken yükle
   React.useEffect(() => {
@@ -335,6 +341,67 @@ const MainApp: React.FC = () => {
     setSelectedCategory(newValue);
   };
 
+  // Müşterileri yükle
+  const loadCustomers = React.useCallback(async () => {
+    try {
+      console.log('🔄 loadCustomers çağrıldı...');
+      const db = getDatabaseIPC();
+      console.log('📡 Database IPC alındı, getCustomers çağrılıyor...');
+      const list = await db.getCustomers();
+      console.log('📋 getCustomers sonucu:', list);
+      console.log('👥 Müşteri sayısı:', list?.length || 0);
+      setCustomers(list);
+      console.log('✅ customers state güncellendi');
+    } catch (e) {
+      console.error('❌ Müşteriler yüklenirken hata:', e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    console.log('🔍 useEffect showCustomers değişti:', showCustomers);
+    if (showCustomers) {
+      console.log('📱 Müşteriler sekmesi açıldı, loadCustomers çağrılıyor...');
+      loadCustomers();
+    }
+  }, [showCustomers, loadCustomers]);
+
+  // customers state değişimini izle
+  React.useEffect(() => {
+    console.log('👥 customers state değişti:', customers);
+    console.log('📊 Müşteri sayısı:', customers?.length || 0);
+  }, [customers]);
+
+  const handleAddCustomerSave = async () => {
+    const name = newCustomerName.trim();
+    const phone = newCustomerPhone.trim();
+    if (!name) {
+      showToast('İsim ve soyisim gerekli', 'warning');
+      return;
+    }
+    try {
+      console.log('👤 Müşteri ekleniyor...', { name, phone });
+      const db = getDatabaseIPC();
+      console.log('📡 Database IPC alındı, addCustomer çağrılıyor...');
+      const ok = await db.addCustomer(name, phone || undefined);
+      console.log('✅ addCustomer sonucu:', ok);
+      if (ok) {
+        console.log('🎉 Müşteri başarıyla kaydedildi, loadCustomers çağrılıyor...');
+        showToast('Müşteri kaydedildi', 'success');
+        setAddCustomerOpen(false);
+        setNewCustomerName('');
+        setNewCustomerPhone('');
+        await loadCustomers();
+        console.log('🔄 loadCustomers tamamlandı');
+      } else {
+        console.log('❌ Müşteri kaydedilemedi');
+        showToast('Müşteri kaydedilemedi', 'error');
+      }
+    } catch (e) {
+      console.error('❌ Müşteri ekleme hatası:', e);
+      showToast('Hata oluştu', 'error');
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
@@ -420,8 +487,8 @@ const MainApp: React.FC = () => {
           }}>
             {/* Ürünler Butonu */}
             <Button
-              onClick={() => setShowTables(false)}
-              variant={!showTables ? "contained" : "outlined"}
+              onClick={() => { setShowTables(false); setShowCustomers(false); }}
+              variant={!showTables && !showCustomers ? "contained" : "outlined"}
               sx={{
                 background: !showTables ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)' : 'rgba(255, 255, 255, 0.9)',
                 color: !showTables ? 'white' : '#0a4940',
@@ -448,7 +515,7 @@ const MainApp: React.FC = () => {
             
             {/* Masalar Butonu */}
             <Button
-              onClick={() => setShowTables(!showTables)}
+              onClick={() => { setShowTables(true); setShowCustomers(false); }}
               variant={showTables ? "contained" : "outlined"}
               sx={{
                 color: showTables ? 'white' : '#0a4940',
@@ -472,6 +539,34 @@ const MainApp: React.FC = () => {
               }}
             >
               🪑 Masalar
+            </Button>
+
+            {/* Müşteriler Butonu */}
+            <Button
+              onClick={() => { setShowTables(false); setShowCustomers(true); }}
+              variant={showCustomers ? "contained" : "outlined"}
+              sx={{
+                color: showCustomers ? 'white' : '#0a4940',
+                border: '2px solid #0a4940',
+                fontWeight: 700,
+                px: 4,
+                py: 1.5,
+                borderRadius: 3,
+                textTransform: 'none',
+                fontSize: '1rem',
+                minWidth: '120px',
+                bgcolor: showCustomers ? 'linear-gradient(135deg, #845ef7 0%, #5c7cfa 100%)' : 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  bgcolor: showCustomers ? 'linear-gradient(135deg, #7048e8 0%, #4263eb 100%)' : '#0a4940',
+                  color: 'white',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(10, 73, 64, 0.3)',
+                  border: '2px solid #0a4940'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              👥 Müşteriler
             </Button>
           </Box>
           
@@ -536,6 +631,12 @@ const MainApp: React.FC = () => {
                     <SettingsIcon />
                   </ListItemIcon>
                   <ListItemText primary="Ayarlar" />
+                </MenuItem>
+                <MenuItem onClick={() => { setShowTables(false); setShowCustomers(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2 }}>
+                  <ListItemIcon>
+                    <LoyaltyIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Müşteriler" />
                 </MenuItem>
               </Box>
             </Box>
@@ -720,6 +821,139 @@ const MainApp: React.FC = () => {
                     </Card>
                   );
                 })}
+              </Box>
+            </Box>
+          </Paper>
+        ) : showCustomers ? (
+          // Müşteri Görünümü
+          <Paper sx={{ 
+            borderRadius: 3, 
+            height: 'calc(100vh - 180px)', 
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            bgcolor: 'background.default'
+          }}>
+            {/* Başlık */}
+            <Box sx={{ 
+              px: 4, 
+              py: 3, 
+              borderBottom: 1, 
+              borderColor: 'divider',
+              background: 'linear-gradient(135deg, #5c7cfa 0%, #845ef7 100%)',
+              color: 'white'
+            }}>
+              <Typography variant="h4" sx={{ 
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2
+              }}>
+                👥 Müşteri Yönetimi
+                <Typography variant="body1" sx={{ 
+                  opacity: 0.9,
+                  fontWeight: 500
+                }}>
+                  Toplam {customers.length} Müşteri
+                </Typography>
+              </Typography>
+            </Box>
+
+            {/* Müşteri Grid - Kaydırılabilir */}
+            <Box sx={{ 
+              flex: 1, 
+              overflow: 'auto', 
+              p: 4,
+              '&::-webkit-scrollbar': {
+                width: '12px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: '#f1f1f1',
+                borderRadius: '6px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#5c7cfa',
+                borderRadius: '6px',
+                '&:hover': {
+                  background: '#4263eb',
+                },
+              },
+            }}>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(5, 1fr)', 
+                gap: 4,
+                pb: 4
+              }}>
+                {/* Önce Müşteriler */}
+                {customers.map((c, index) => (
+                  <Card 
+                    key={c.id}
+                    sx={{ 
+                      aspectRatio: '1',
+                      cursor: 'default',
+                      transition: 'all 0.3s ease',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%)',
+                      color: '#0a2540',
+                      border: '3px solid',
+                      borderColor: '#e6e9ff',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                    }}
+                  >
+                    <CardContent sx={{ 
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      p: 3,
+                      textAlign: 'center'
+                    }}>
+                      <Typography variant="h3" sx={{ 
+                        fontWeight: 800,
+                        fontSize: '2.2rem',
+                        color: '#4263eb'
+                      }}>
+                        {index + 1}
+                      </Typography>
+                      <PersonIcon sx={{ fontSize: 48, color: '#5c7cfa' }} />
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem', color: '#0a2540' }}>
+                          {c.name}
+                        </Typography>
+                        {c.phone ? (
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.9rem', color: '#4263eb', mt: 0.5 }}>
+                            {c.phone}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* En sonda Ekle Kartı */}
+                <Card
+                  onClick={() => setAddCustomerOpen(true)}
+                  sx={{
+                    aspectRatio: '1',
+                    cursor: 'pointer',
+                    border: '3px dashed #adb5ff',
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.25s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px) scale(1.02)',
+                      boxShadow: '0 12px 30px rgba(66, 99, 235, 0.15)'
+                    }
+                  }}
+                >
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Typography variant="h3" sx={{ color: '#5c7cfa', fontWeight: 800 }}>＋</Typography>
+                    <Typography sx={{ mt: 1, fontWeight: 700, color: '#5c7cfa' }}>Müşteri Ekle</Typography>
+                  </CardContent>
+                </Card>
               </Box>
             </Box>
           </Paper>
@@ -1514,6 +1748,37 @@ const MainApp: React.FC = () => {
           onClear={handleVirtualClear}
           currentValue={searchQuery}
         />
+
+        {/* Müşteri Ekle Dialog */}
+        <Dialog
+          open={addCustomerOpen}
+          onClose={() => setAddCustomerOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 700 }}>Yeni Müşteri</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField
+                label="İsim Soyisim"
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="Telefon Numarası"
+                value={newCustomerPhone}
+                onChange={(e) => setNewCustomerPhone(e.target.value)}
+                fullWidth
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button variant="outlined" onClick={() => setAddCustomerOpen(false)}>İptal</Button>
+            <Button variant="contained" onClick={handleAddCustomerSave}>Ekle</Button>
+          </DialogActions>
+        </Dialog>
 
           {/* Boyut Seçim Dialog */}
           <Dialog

@@ -559,8 +559,46 @@ ipcMain.handle('db-close-table-order', async (event, tableNumber) => {
   }
 });
 
+// Müşteri işlemleri IPC handlers
+ipcMain.handle('db-get-customers', async () => {
+  console.log('🔄 IPC Handler çağrıldı: db-get-customers');
+  try {
+    const db = getDatabase();
+    console.log('📡 Database instance alındı, getCustomers çağrılıyor...');
+    const list = db.getCustomers();
+    console.log('📋 getCustomers sonucu:', list);
+    console.log('👥 Müşteri sayısı:', list?.length || 0);
+    return list;
+  } catch (error) {
+    console.error('❌ Database get customers error:', error);
+    return [];
+  }
+});
+console.log('🔧 db-get-customers handler kaydedildi');
+
+ipcMain.handle('db-add-customer', async (event, name: string, phone?: string) => {
+  console.log('🔄 IPC Handler çağrıldı: db-add-customer', { name, phone });
+  try {
+    if (!name || !name.trim()) {
+      console.error('❌ Geçersiz müşteri adı:', name);
+      return false;
+    }
+    console.log('📡 Database instance alındı, addCustomer çağrılıyor...');
+    const db = getDatabase();
+    const ok = db.addCustomer(name.trim(), phone?.trim() || null);
+    console.log('✅ db-add-customer sonucu:', ok);
+    return ok;
+  } catch (error) {
+    console.error('❌ Database add customer error:', error);
+    return false;
+  }
+});
+console.log('🔧 db-add-customer handler kaydedildi');
+
 console.log('🔧 IPC Handlers kaydediliyor...');
 console.log('🔧 db-get-active-table-orders handler kaydedildi');
 console.log('🔧 db-save-table-order handler kaydedildi');
 console.log('🔧 db-add-to-table-order handler kaydedildi');
 console.log('🔧 db-close-table-order handler kaydedildi');
+console.log('🔧 db-get-customers handler kaydedildi');
+console.log('🔧 db-add-customer handler kaydedildi');

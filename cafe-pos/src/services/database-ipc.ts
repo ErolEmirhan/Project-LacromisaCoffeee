@@ -1,4 +1,4 @@
-import { Category, Product, Sale, DashboardStats } from '../types';
+import { Category, Product, Sale, DashboardStats, Customer } from '../types';
 
 // IPC üzerinden database işlemleri yapan servis
 export class DatabaseIPCService {
@@ -227,6 +227,34 @@ export class DatabaseIPCService {
     } catch (error) {
       console.error('Aktif masa siparişleri alma hatası:', error);
       return {};
+    }
+  }
+
+  // ==================== MÜŞTERİ İŞLEMLERİ ====================
+
+  async getCustomers(): Promise<Customer[]> {
+    try {
+      console.log('🔄 Renderer getCustomers çağrıldı...');
+      console.log('📡 electronAPI.database.getCustomers çağrılıyor...');
+      const result = await (window as any).electronAPI.database.getCustomers();
+      console.log('✅ Renderer getCustomers sonucu:', result);
+      return result || [];
+    } catch (error) {
+      console.error('❌ Renderer müşteriler yüklenirken hata:', error);
+      return [];
+    }
+  }
+
+  async addCustomer(name: string, phone?: string): Promise<boolean> {
+    try {
+      console.log('🔄 Renderer addCustomer çağrıldı:', { name, phone });
+      console.log('📡 electronAPI.database.addCustomer çağrılıyor...');
+      const result = await (window as any).electronAPI.database.addCustomer(name, phone);
+      console.log('✅ Renderer addCustomer sonucu:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Renderer müşteri ekleme hatası:', error);
+      return false;
     }
   }
 

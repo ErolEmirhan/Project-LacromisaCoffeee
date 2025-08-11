@@ -157,6 +157,17 @@ class DatabaseService {
             FOREIGN KEY (table_order_id) REFERENCES table_orders(id)
           )
         `);
+
+        // Müşteriler tablosu
+        this.db!.exec(`
+          CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
       });
 
       transaction();
@@ -284,6 +295,85 @@ class DatabaseService {
     } catch (error) {
       console.error('Ürünler yüklenirken hata:', error);
       return [];
+    }
+  }
+
+  // ==================== MÜŞTERİ İŞLEMLERİ ====================
+
+  // Tüm müşterileri getir
+  getCustomers(): Array<{ id: number; name: string; phone?: string; createdAt: string; updatedAt: string }> {
+    console.log('🔄 Database getCustomers çağrıldı...');
+    this.ensureConnection();
+    if (!this.db) {
+      console.log('❌ Database bağlantısı yok');
+      return [];
+    }
+    try {
+      console.log('📡 SQL sorgusu hazırlanıyor...');
+      const stmt = this.db.prepare('SELECT id, name, phone, created_at as createdAt, updated_at as updatedAt FROM customers ORDER BY id');
+      const result = stmt.all() as any[];
+      console.log('📋 SQL sorgu sonucu:', result);
+      console.log('👥 Müşteri sayısı:', result?.length || 0);
+      return result;
+    } catch (error) {
+      console.error('❌ Müşteriler yüklenirken hata:', error);
+      return [];
+    }
+  }
+
+  // Müşteri ekle
+  addCustomer(name: string, phone: string | null = null): boolean {
+    console.log('🔄 Database addCustomer çağrıldı:', { name, phone });
+    this.ensureConnection();
+    if (!this.db) {
+      console.error('❌ Müşteri ekleme hatası: Veritabanı bağlantısı yok');
+      return false;
+    }
+    try {
+      console.log('📡 Tablo varlığı kontrol ediliyor...');
+      // Tablo varlığını garantiye al
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS customers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          phone TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Tablo kontrol edildi/oluşturuldu, INSERT sorgusu hazırlanıyor...');
+      const stmt = this.db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
+      const result = stmt.run(name, phone);
+      console.log('📋 INSERT sonucu:', result);
+      console.log('✅ Müşteri ekleme başarılı:', result.changes > 0);
+      return result.changes > 0;
+    } catch (error) {
+      console.error('❌ Müşteri ekleme hatası:', error);
+      // Otomatik iyileştirme: tablo yoksa oluştur ve tekrar dene
+      const message = (error as any)?.message || '';
+      if (message.includes('no such table') && message.includes('customers')) {
+        console.log('🔄 Tablo bulunamadı, otomatik oluşturma deneniyor...');
+        try {
+          this.db!.exec(`
+            CREATE TABLE IF NOT EXISTS customers (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              phone TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+          console.log('✅ Tablo oluşturuldu, tekrar INSERT deneniyor...');
+          const retry = this.db!.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
+          const result = retry.run(name, phone);
+          console.log('📋 Retry INSERT sonucu:', result);
+          return result.changes > 0;
+        } catch (e2) {
+          console.error('❌ Müşteri ekleme/otomatik tablo oluşturma hatası:', e2);
+          return false;
+        }
+      }
+      return false;
     }
   }
 
