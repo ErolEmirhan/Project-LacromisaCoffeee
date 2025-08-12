@@ -52,12 +52,15 @@ const PaymentDialog: React.FC = () => {
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<string>('');
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [currentStep, setCurrentStep] = React.useState<'method' | 'details' | 'processing' | 'item-payment'>('method');
+  const [currentStep, setCurrentStep] = React.useState<'method' | 'details' | 'processing' | 'item-payment' | 'customer-selection'>('method');
   const [cashAmount, setCashAmount] = React.useState<string>('');
   const [cardAmount, setCardAmount] = React.useState<string>('');
   const [processingItemId, setProcessingItemId] = React.useState<string>('');
   const [allItemsPaid, setAllItemsPaid] = React.useState(false);
   const [currentItemForPayment, setCurrentItemForPayment] = React.useState<{id: string, name: string, amount: number} | null>(null);
+  const [customers, setCustomers] = React.useState<any[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null);
+  const [showCustomerSelection, setShowCustomerSelection] = React.useState(false);
 
   const paymentMethods = [
     { id: 'cash', name: 'Nakit', icon: CashIcon, color: '#4caf50', description: 'Nakit ödeme' },
@@ -68,7 +71,8 @@ const PaymentDialog: React.FC = () => {
   const allPaymentMethods = [
     ...paymentMethods,
     { id: 'split-items', name: 'Ayrı Hesap', icon: CartIcon, color: '#9c27b0', description: 'Her ürünü ayrı öde' },
-    { id: 'mixed', name: 'Karma Ödeme', icon: MixedPaymentIcon, color: '#ff5722', description: 'Nakit + Kart karışık' }
+    { id: 'mixed', name: 'Karma Ödeme', icon: MixedPaymentIcon, color: '#ff5722', description: 'Nakit + Kart karışık' },
+    { id: 'customer-special', name: 'Müşteri Özel', icon: ContactlessIcon, color: '#e91e63', description: 'Müşteriye özel sipariş' }
   ];
 
   const formatPrice = (price: number) => {
@@ -78,12 +82,83 @@ const PaymentDialog: React.FC = () => {
     }).format(price);
   };
 
+  // Müşterileri yükle
+  const loadCustomers = React.useCallback(async () => {
+    try {
+      const { getDatabaseIPC } = await import('../services/database-ipc');
+      const db = getDatabaseIPC();
+      const customerList = await db.getCustomers();
+      setCustomers(customerList);
+    } catch (error) {
+      console.error('Müşteriler yüklenirken hata:', error);
+      setCustomers([]);
+    }
+  }, []);
+
+  // Müşteriye özel siparişi kaydet
+  const handleCustomerSpecialOrder = async (customer: any) => {
+    try {
+      setIsProcessing(true);
+      
+      // Müşteriye özel siparişi veritabanına kaydet
+      const { getDatabaseIPC } = await import('../services/database-ipc');
+      const db = getDatabaseIPC();
+      
+      // Müşteriye özel siparişi veritabanına kaydet
+      const success = await db.addCustomerOrder(
+        customer.id, 
+        cart.items, 
+        paymentAmount, 
+        'Müşteri Özel'
+      );
+      
+      if (success) {
+        // Başarılı mesajı göster
+        const receiptData = {
+          items: cart.items.map(item => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price,
+            total: item.product.price * item.quantity
+          })),
+          totalAmount: paymentAmount,
+          paymentMethod: 'Müşteri Özel',
+          customerName: customer.name,
+          customerPhone: customer.phone
+        };
+        
+        showReceiptPreviewDialog(receiptData);
+        completePayment();
+        setCurrentStep('method');
+        setSelectedPaymentMethod('');
+        setSelectedCustomer(null);
+      } else {
+        console.error('❌ Müşteri siparişi kaydedilemedi');
+      }
+      
+    } catch (error) {
+      console.error('Müşteri özel sipariş hatası:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Müşterileri yükle - koşullu olarak
+  React.useEffect(() => {
+    if (currentStep === 'customer-selection') {
+      loadCustomers();
+    }
+  }, [currentStep, loadCustomers]);
+
   const handlePaymentMethodSelect = (methodId: string) => {
     setSelectedPaymentMethod(methodId);
     
     if (methodId === 'split-items' || methodId === 'mixed') {
       setPaymentMode(methodId as 'split-items' | 'mixed');
       setCurrentStep('details');
+    } else if (methodId === 'customer-special') {
+      setPaymentMode('customer-special');
+      setCurrentStep('customer-selection');
     } else {
       setPaymentMode('normal');
       handleSimplePayment(methodId);
@@ -743,6 +818,168 @@ const PaymentDialog: React.FC = () => {
             sx={{ flex: 1 }}
           >
             Ödemeyi Tamamla
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
+  // Customer Selection Screen
+  if (currentStep === 'customer-selection') {
+    return (
+      <Dialog
+        open={showPaymentDialog}
+        onClose={handleCancel}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 2
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          textAlign: 'center', 
+          pb: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <Box sx={{ 
+            bgcolor: 'primary.light', 
+            borderRadius: '50%', 
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <ContactlessIcon sx={{ fontSize: '2rem', color: 'primary.dark' }} />
+          </Box>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            Müşteri Özel Sipariş
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+            {formatPrice(paymentAmount)}
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 1 }}>
+          {/* Sipariş Özeti */}
+          <Box sx={{ mb: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+              📋 Sipariş Özeti
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Toplam Tutar</Typography>
+                <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+                  {formatPrice(paymentAmount)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Ürün Sayısı</Typography>
+                <Typography variant="h6" color="text.primary" sx={{ fontWeight: 600 }}>
+                  {cart.items.length} adet
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">Tarih & Saat</Typography>
+              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+                {new Date().toLocaleDateString('tr-TR')} - {new Date().toLocaleTimeString('tr-TR')}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary">Ürünler</Typography>
+              <Box sx={{ mt: 1 }}>
+                {cart.items.map((item, index) => (
+                  <Typography key={index} variant="body2" color="text.primary">
+                    • {item.product.name} x{item.quantity} - {formatPrice(item.product.price * item.quantity)}
+                  </Typography>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Müşteri Seçimi */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+              👤 Müşteri Seçin
+            </Typography>
+            <Box sx={{ 
+              maxHeight: 300, 
+              overflow: 'auto',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              p: 1
+            }}>
+              {customers.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Henüz müşteri bulunmuyor
+                  </Typography>
+                </Box>
+              ) : (
+                customers.map((customer) => (
+                  <Box
+                    key={customer.id || `customer-${customer.name}`}
+                    onClick={() => setSelectedCustomer(customer)}
+                    sx={{
+                      p: 2,
+                      mb: 1,
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: selectedCustomer?.id === customer.id ? 'primary.main' : 'transparent',
+                      bgcolor: selectedCustomer?.id === customer.id ? 'primary.50' : 'background.paper',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: 'grey.50',
+                        borderColor: 'primary.light'
+                      }
+                    }}
+                  >
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                      {customer.name}
+                    </Typography>
+                    {customer.phone && (
+                      <Typography variant="body2" color="text.secondary">
+                        📱 {customer.phone}
+                      </Typography>
+                    )}
+                  </Box>
+                ))
+              )}
+            </Box>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <Button 
+            onClick={handleCancel} 
+            startIcon={<CancelIcon />}
+            variant="outlined"
+            size="large"
+          >
+            İptal
+          </Button>
+          <Button 
+            onClick={() => {
+              if (selectedCustomer) {
+                // Müşteriye özel siparişi kaydet
+                handleCustomerSpecialOrder(selectedCustomer);
+              }
+            }}
+            startIcon={<CheckIcon />}
+            variant="contained"
+            size="large"
+            disabled={!selectedCustomer}
+            sx={{ flex: 1 }}
+          >
+            Müşteriye Özel Sipariş Ekle
           </Button>
         </DialogActions>
       </Dialog>

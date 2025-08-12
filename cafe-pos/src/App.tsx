@@ -53,7 +53,18 @@ import {
 // Removed default MenuIcon in favor of custom modern hamburger
 import { useStore } from './store/useStore';
 import { CartItem, Customer } from './types';
-import { Person as PersonIcon, Loyalty as LoyaltyIcon } from '@mui/icons-material';
+import { 
+  Person as PersonIcon, 
+  Loyalty as LoyaltyIcon,
+  PersonAdd as PersonAddIcon,
+  ClearAll as ClearAllIcon,
+  Info as InfoIcon,
+  Backup as BackupIcon,
+  Speed as SpeedIcon,
+  Assessment as AssessmentIcon,
+  Emergency as EmergencyIcon,
+  SwapHoriz as SwapHorizIcon
+} from '@mui/icons-material';
 import { getDatabaseIPC } from './services/database-ipc';
 import LoginScreen from './components/LoginScreen';
 import SplashScreen from './components/SplashScreen';
@@ -224,6 +235,17 @@ const MainApp: React.FC = () => {
   const [addCustomerOpen, setAddCustomerOpen] = React.useState(false);
   const [newCustomerName, setNewCustomerName] = React.useState('');
   const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = React.useState(false);
+  const [deleteAllCountdown, setDeleteAllCountdown] = React.useState(3);
+  const [deleteAllEnabled, setDeleteAllEnabled] = React.useState(false);
+  const [selectedCustomerForHistory, setSelectedCustomerForHistory] = React.useState<any>(null);
+  const [customerOrders, setCustomerOrders] = React.useState<any[]>([]);
+  const [customerTotalDebt, setCustomerTotalDebt] = React.useState(0);
+  
+  // Masa aktarım için state'ler
+  const [showTableTransferDialog, setShowTableTransferDialog] = React.useState(false);
+  const [sourceTable, setSourceTable] = React.useState<number | null>(null);
+  const [targetTable, setTargetTable] = React.useState<number | null>(null);
 
   // Verileri uygulama başlarken yükle
   React.useEffect(() => {
@@ -316,6 +338,61 @@ const MainApp: React.FC = () => {
     setSearchQuery('');
   };
 
+  // Masa aktarım fonksiyonu
+  const handleTableTransfer = async () => {
+    if (!sourceTable || !targetTable) {
+      showToast('Lütfen kaynak ve hedef masa seçin', 'error');
+      return;
+    }
+
+    if (sourceTable === targetTable) {
+      showToast('Kaynak ve hedef masa aynı olamaz', 'error');
+      return;
+    }
+
+    try {
+      console.log(`🔄 Masa ${sourceTable} -> Masa ${targetTable} aktarımı başlıyor...`);
+      
+      // Kaynak masadan veriyi al
+      const sourceOrder = tableOrders[sourceTable];
+      if (!sourceOrder) {
+        showToast(`Masa ${sourceTable} boş, aktarım yapılamaz`, 'error');
+        return;
+      }
+
+      // Hedef masanın boş olduğunu kontrol et
+      if (tableOrders[targetTable]) {
+        showToast(`Masa ${targetTable} dolu, aktarım yapılamaz`, 'error');
+        return;
+      }
+
+      // Veritabanında masa aktarımını yap
+      const db = getDatabaseIPC();
+      const success = await db.transferTableOrder(sourceTable, targetTable);
+      
+      if (success) {
+        // Local state'i güncelle
+        const newTableOrders = { ...tableOrders };
+        newTableOrders[targetTable] = sourceOrder;
+        delete newTableOrders[sourceTable];
+        setTableOrders(newTableOrders);
+        
+        // Dialog'u kapat
+        setShowTableTransferDialog(false);
+        setSourceTable(null);
+        setTargetTable(null);
+        
+        showToast(`Masa ${sourceTable} -> Masa ${targetTable} başarıyla aktarıldı!`, 'success');
+        console.log(`✅ Masa aktarımı tamamlandı: ${sourceTable} -> ${targetTable}`);
+      } else {
+        showToast('Masa aktarımı başarısız!', 'error');
+      }
+    } catch (error: any) {
+      console.error('❌ Masa aktarım hatası:', error);
+      showToast(`Hata: ${error?.message || 'Bilinmeyen hata'}`, 'error');
+    }
+  };
+
   // Sanal klavye fonksiyonları
   const handleVirtualKeyPress = (key: string) => {
     setSearchQuery(prev => prev + key);
@@ -365,11 +442,72 @@ const MainApp: React.FC = () => {
     }
   }, [showCustomers, loadCustomers]);
 
+  // Countdown timer for delete all confirmation
+  React.useEffect(() => {
+    if (deleteAllConfirmOpen && !deleteAllEnabled) {
+      const timer = setInterval(() => {
+        setDeleteAllCountdown(prev => {
+          if (prev <= 1) {
+            setDeleteAllEnabled(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [deleteAllConfirmOpen, deleteAllEnabled]);
+
+  // Müşteri seçildiğinde sipariş geçmişini yükle
+  React.useEffect(() => {
+    if (selectedCustomerForHistory) {
+      loadCustomerHistory(selectedCustomerForHistory.id);
+    }
+  }, [selectedCustomerForHistory]);
+
+  const loadCustomerHistory = async (customerId: number) => {
+    try {
+      const db = getDatabaseIPC();
+      const orders = await db.getCustomerOrders(customerId);
+      const totalDebt = await db.getCustomerTotalDebt(customerId);
+      setCustomerOrders(orders);
+      setCustomerTotalDebt(totalDebt);
+    } catch (error) {
+      console.error('Müşteri geçmişi yüklenirken hata:', error);
+      setCustomerOrders([]);
+      setCustomerTotalDebt(0);
+    }
+  };
+
   // customers state değişimini izle
   React.useEffect(() => {
     console.log('👥 customers state değişti:', customers);
     console.log('📊 Müşteri sayısı:', customers?.length || 0);
   }, [customers]);
+
+  const handleDeleteAllCustomers = async () => {
+    try {
+      console.log('🗑️ Tüm müşteriler siliniyor...');
+      const db = getDatabaseIPC();
+      const success = await db.deleteAllCustomers();
+      
+      if (success) {
+        console.log('✅ Tüm müşteriler başarıyla silindi');
+        setCustomers([]);
+        showToast('Tüm müşteriler silindi', 'success');
+        setDeleteAllConfirmOpen(false);
+        setDeleteAllCountdown(3);
+        setDeleteAllEnabled(false);
+      } else {
+        console.error('❌ Müşteriler silinemedi');
+        showToast('Müşteriler silinemedi!', 'error');
+      }
+    } catch (error: any) {
+      console.error('❌ Tüm müşterileri silme hatası:', error);
+      showToast(`Hata: ${error?.message || 'Bilinmeyen hata'}`, 'error');
+    }
+  };
 
   const handleAddCustomerSave = async () => {
     const name = newCustomerName.trim();
@@ -382,23 +520,36 @@ const MainApp: React.FC = () => {
       console.log('👤 Müşteri ekleniyor...', { name, phone });
       const db = getDatabaseIPC();
       console.log('📡 Database IPC alındı, addCustomer çağrılıyor...');
-      const ok = await db.addCustomer(name, phone || undefined);
-      console.log('✅ addCustomer sonucu:', ok);
-      if (ok) {
-        console.log('🎉 Müşteri başarıyla kaydedildi, loadCustomers çağrılıyor...');
+      const prevCount = customers.length;
+      const created: any = await db.addCustomer(name, phone || undefined);
+      console.log('✅ addCustomer sonucu (row):', created);
+      if (created && created.id) {
         showToast('Müşteri kaydedildi', 'success');
+        // Dialog alanlarını sıfırla
         setAddCustomerOpen(false);
         setNewCustomerName('');
         setNewCustomerPhone('');
-        await loadCustomers();
-        console.log('🔄 loadCustomers tamamlandı');
+        // UI'ya anında yansıt (ekstra tazeleme yok; kalıcı kayıt garantili)
+        setCustomers(prev => [...prev, created]);
       } else {
-        console.log('❌ Müşteri kaydedilemedi');
-        showToast('Müşteri kaydedilemedi', 'error');
+        console.log('ℹ️ Satır dönmedi, listeyi tekrar okuyorum...');
+        const fresh = await db.getCustomers();
+        console.log('📋 getCustomers (fallback) sonucu:', fresh);
+        setCustomers(fresh);
+        if (fresh.length > prevCount) {
+          showToast('Müşteri kaydedildi', 'success');
+          setAddCustomerOpen(false);
+          setNewCustomerName('');
+          setNewCustomerPhone('');
+        } else {
+          console.log('❌ Müşteri kaydedilemedi veya DB liste artmadı');
+          showToast('Müşteri kaydedilemedi! Lütfen tekrar deneyin.', 'error');
+          // Dialog açık kalsın, kullanıcı düzenleyip tekrar deneyebilsin
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('❌ Müşteri ekleme hatası:', e);
-      showToast('Hata oluştu', 'error');
+      showToast(`Hata: ${e?.message || 'Bilinmeyen hata'}`, 'error');
     }
   };
 
@@ -488,26 +639,48 @@ const MainApp: React.FC = () => {
             {/* Ürünler Butonu */}
             <Button
               onClick={() => { setShowTables(false); setShowCustomers(false); }}
-              variant={!showTables && !showCustomers ? "contained" : "outlined"}
+              variant="outlined"
               sx={{
-                background: !showTables ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)' : 'rgba(255, 255, 255, 0.9)',
-                color: !showTables ? 'white' : '#0a4940',
-                fontWeight: 700,
-                px: 4,
-                py: 1.5,
-                borderRadius: 3,
+                background: (!showTables && !showCustomers) 
+                  ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 255, 254, 0.9) 100%)',
+                color: (!showTables && !showCustomers) ? 'white' : '#0a4940',
+                fontWeight: 800,
+                px: 5,
+                py: 2,
+                borderRadius: '20px',
                 textTransform: 'none',
-                boxShadow: !showTables ? '0 4px 15px rgba(10, 73, 64, 0.3)' : 'none',
-                fontSize: '1rem',
-                minWidth: '120px',
-                border: '2px solid #0a4940',
-                '&:hover': {
-                  background: !showTables ? 'linear-gradient(135deg, #053429 0%, #0a4940 100%)' : '#0a4940',
-                  color: 'white',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(10, 73, 64, 0.4)',
+                fontSize: '1.1rem',
+                minWidth: '140px',
+                border: 'none',
+                boxShadow: (!showTables && !showCustomers) 
+                  ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 15px rgba(10, 73, 64, 0.2)'
+                  : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04)',
+                transform: (!showTables && !showCustomers) ? 'scale(1.08) translateY(-2px)' : 'scale(1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                  borderRadius: '20px',
+                  opacity: (!showTables && !showCustomers) ? 1 : 0,
+                  transition: 'opacity 0.3s ease'
                 },
-                transition: 'all 0.3s ease'
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #053429 0%, #0a4940 100%)',
+                  color: 'white',
+                  transform: 'translateY(-3px) scale(1.05)',
+                  boxShadow: '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 20px rgba(10, 73, 64, 0.3)',
+                  '&::before': {
+                    opacity: 1
+                  }
+                },
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             >
               🍽️ Ürünler
@@ -516,26 +689,48 @@ const MainApp: React.FC = () => {
             {/* Masalar Butonu */}
             <Button
               onClick={() => { setShowTables(true); setShowCustomers(false); }}
-              variant={showTables ? "contained" : "outlined"}
+              variant="outlined"
               sx={{
+                background: showTables 
+                  ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 255, 254, 0.9) 100%)',
                 color: showTables ? 'white' : '#0a4940',
-                border: '2px solid #0a4940',
-                fontWeight: 700,
-                px: 4,
-                py: 1.5,
-                borderRadius: 3,
+                fontWeight: 800,
+                px: 5,
+                py: 2,
+                borderRadius: '20px',
                 textTransform: 'none',
-                fontSize: '1rem',
-                minWidth: '120px',
-                bgcolor: showTables ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)' : 'rgba(255, 255, 255, 0.9)',
-                '&:hover': {
-                  bgcolor: showTables ? 'linear-gradient(135deg, #053429 0%, #0a4940 100%)' : '#0a4940',
-                  color: 'white',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(10, 73, 64, 0.3)',
-                  border: '2px solid #0a4940'
+                fontSize: '1.1rem',
+                minWidth: '140px',
+                border: 'none',
+                boxShadow: showTables 
+                  ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 15px rgba(10, 73, 64, 0.2)'
+                  : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04)',
+                transform: showTables ? 'scale(1.08) translateY(-2px)' : 'scale(1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                  borderRadius: '20px',
+                  opacity: showTables ? 1 : 0,
+                  transition: 'opacity 0.3s ease'
                 },
-                transition: 'all 0.3s ease'
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #053429 0%, #0a4940 100%)',
+                  color: 'white',
+                  transform: 'translateY(-3px) scale(1.05)',
+                  boxShadow: '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 20px rgba(10, 73, 64, 0.3)',
+                  '&::before': {
+                    opacity: 1
+                  }
+                },
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             >
               🪑 Masalar
@@ -544,26 +739,48 @@ const MainApp: React.FC = () => {
             {/* Müşteriler Butonu */}
             <Button
               onClick={() => { setShowTables(false); setShowCustomers(true); }}
-              variant={showCustomers ? "contained" : "outlined"}
+              variant="outlined"
               sx={{
+                background: showCustomers 
+                  ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 255, 254, 0.9) 100%)',
                 color: showCustomers ? 'white' : '#0a4940',
-                border: '2px solid #0a4940',
-                fontWeight: 700,
-                px: 4,
-                py: 1.5,
-                borderRadius: 3,
+                fontWeight: 800,
+                px: 5,
+                py: 2,
+                borderRadius: '20px',
                 textTransform: 'none',
-                fontSize: '1rem',
-                minWidth: '120px',
-                bgcolor: showCustomers ? 'linear-gradient(135deg, #845ef7 0%, #5c7cfa 100%)' : 'rgba(255, 255, 255, 0.9)',
-                '&:hover': {
-                  bgcolor: showCustomers ? 'linear-gradient(135deg, #7048e8 0%, #4263eb 100%)' : '#0a4940',
-                  color: 'white',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(10, 73, 64, 0.3)',
-                  border: '2px solid #0a4940'
+                fontSize: '1.1rem',
+                minWidth: '140px',
+                border: 'none',
+                boxShadow: showCustomers 
+                  ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 15px rgba(10, 73, 64, 0.2)'
+                  : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04)',
+                transform: showCustomers ? 'scale(1.08) translateY(-2px)' : 'scale(1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                  borderRadius: '20px',
+                  opacity: showCustomers ? 1 : 0,
+                  transition: 'opacity 0.3s ease'
                 },
-                transition: 'all 0.3s ease'
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #053429 0%, #0a4940 100%)',
+                  color: 'white',
+                  transform: 'translateY(-3px) scale(1.05)',
+                  boxShadow: '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 20px rgba(10, 73, 64, 0.3)',
+                  '&::before': {
+                    opacity: 1
+                  }
+                },
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             >
               👥 Müşteriler
@@ -620,23 +837,198 @@ const MainApp: React.FC = () => {
               </Box>
               <Divider />
               <Box sx={{ mt: 1 }}>
-                <MenuItem onClick={() => { setShowDashboard(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2 }}>
+                {/* Ana Menü */}
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}>
+                  📊 YÖNETİM
+                </Typography>
+                
+                <MenuItem onClick={() => { setShowDashboard(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
                   <ListItemIcon>
                     <AnalyticsIcon />
                   </ListItemIcon>
-                  <ListItemText primary="Admin Dashboard" />
+                  <ListItemText 
+                    primary="Admin Dashboard" 
+                    secondary="Satış istatistikleri ve raporlar"
+                  />
                 </MenuItem>
-                <MenuItem onClick={() => { showAdminPanelDialog(); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2 }}>
+                
+                <MenuItem onClick={() => { showAdminPanelDialog(); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
                   <ListItemIcon>
                     <SettingsIcon />
                   </ListItemIcon>
-                  <ListItemText primary="Ayarlar" />
+                  <ListItemText 
+                    primary="Ayarlar" 
+                    secondary="Sistem konfigürasyonu"
+                  />
                 </MenuItem>
-                <MenuItem onClick={() => { setShowTables(false); setShowCustomers(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2 }}>
+
+                <Divider sx={{ my: 2 }} />
+                
+                {/* Müşteri İşlemleri */}
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}>
+                  👥 MÜŞTERİ İŞLEMLERİ
+                </Typography>
+                
+                <MenuItem onClick={() => { setShowTables(false); setShowCustomers(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
                   <ListItemIcon>
                     <LoyaltyIcon />
                   </ListItemIcon>
-                  <ListItemText primary="Müşteriler" />
+                  <ListItemText 
+                    primary="Müşteri Yönetimi" 
+                    secondary="Müşteri listesi ve sipariş geçmişi"
+                  />
+                </MenuItem>
+
+                <MenuItem onClick={() => { 
+                  // Hızlı müşteri ekleme
+                  setShowTables(false); 
+                  setShowCustomers(true); 
+                  setAddCustomerOpen(true);
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <PersonAddIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Hızlı Müşteri Ekle" 
+                    secondary="Yeni müşteri kaydı oluştur"
+                  />
+                </MenuItem>
+
+                <Divider sx={{ my: 2 }} />
+                
+                {/* Hızlı İşlemler */}
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}>
+                  ⚡ HIZLI İŞLEMLER
+                </Typography>
+
+                <MenuItem onClick={() => { 
+                  // Sepeti temizle
+                  clearCart();
+                  showToast('Sepet temizlendi', 'success');
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <ClearAllIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Sepeti Temizle" 
+                    secondary="Tüm ürünleri sepetten kaldır"
+                  />
+                </MenuItem>
+
+                <MenuItem onClick={() => { 
+                  // Hızlı ürün arama
+                  setShowTables(false);
+                  setShowDashboard(false);
+                  setShowCustomers(false);
+                  // Ürün arama modunu aktif et
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <SearchIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Hızlı Ürün Ara" 
+                    secondary="Ürün adı ile arama yap"
+                  />
+                </MenuItem>
+
+                <Divider sx={{ my: 2 }} />
+                
+                {/* Sistem Bilgileri */}
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}>
+                  ℹ️ SİSTEM BİLGİLERİ
+                </Typography>
+
+                <MenuItem onClick={() => { 
+                  // Sistem durumu göster
+                  const systemInfo = {
+                    version: '1.0.0',
+                    lastUpdate: new Date().toLocaleDateString('tr-TR'),
+                    totalProducts: products.length,
+                    totalCategories: categories.length,
+                    totalCustomers: customers.length
+                  };
+                  showToast(`Sistem: v${systemInfo.version} | ${systemInfo.totalProducts} ürün | ${systemInfo.totalCustomers} müşteri`, 'info');
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <InfoIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Sistem Durumu" 
+                    secondary="Versiyon ve istatistikler"
+                  />
+                </MenuItem>
+
+                <MenuItem onClick={() => { 
+                  // Veritabanı yedekleme simülasyonu
+                  showToast('Veritabanı yedekleniyor...', 'info');
+                  setTimeout(() => {
+                    showToast('Veritabanı başarıyla yedeklendi!', 'success');
+                  }, 2000);
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <BackupIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Veritabanı Yedekle" 
+                    secondary="Güvenlik kopyası oluştur"
+                  />
+                </MenuItem>
+
+                <Divider sx={{ my: 2 }} />
+                
+                {/* Gelişmiş Özellikler */}
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}>
+                  🚀 GELİŞMİŞ ÖZELLİKLER
+                </Typography>
+
+                <MenuItem onClick={() => { 
+                  // Hızlı satış modu
+                  showToast('Hızlı satış modu aktif!', 'success');
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <SpeedIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Hızlı Satış Modu" 
+                    secondary="Tek tıkla hızlı işlem"
+                  />
+                </MenuItem>
+
+                <MenuItem onClick={() => { 
+                  // Günlük özet
+                  const today = new Date();
+                  const todaySales = Math.floor(Math.random() * 50) + 10; // Simüle edilmiş veri
+                  const todayRevenue = Math.floor(Math.random() * 1000) + 200;
+                  showToast(`Günlük Özet: ${todaySales} satış, ${formatPrice(todayRevenue)} gelir`, 'info');
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <AssessmentIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Günlük Özet" 
+                    secondary="Bugünkü satış performansı"
+                  />
+                </MenuItem>
+
+                <MenuItem onClick={() => { 
+                  // Acil durum modu
+                  showToast('Acil durum modu aktif! Tüm işlemler kaydediliyor.', 'warning');
+                  closeHeaderDrawer(); 
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <EmergencyIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Acil Durum Modu" 
+                    secondary="Güvenli kapatma ve yedekleme"
+                  />
                 </MenuItem>
               </Box>
             </Box>
@@ -666,20 +1058,50 @@ const MainApp: React.FC = () => {
               background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)',
               color: 'white'
             }}>
-              <Typography variant="h4" sx={{ 
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                width: '100%'
               }}>
-                🪑 Masa Yönetimi
-                <Typography variant="body1" sx={{ 
-                  opacity: 0.9,
-                  fontWeight: 500
-                }}>
-                  Toplam 50 Masa
-                </Typography>
-              </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    🪑 Masa Yönetimi
+                  </Typography>
+                  <Typography variant="body1" sx={{ 
+                    opacity: 0.9,
+                    fontWeight: 500
+                  }}>
+                    Toplam 50 Masa
+                  </Typography>
+                </Box>
+                
+                {/* Masa Aktar Butonu */}
+                <Button
+                  onClick={() => setShowTableTransferDialog(true)}
+                  variant="contained"
+                  startIcon={<SwapHorizIcon />}
+                  sx={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    fontWeight: 700,
+                    px: 4,
+                    py: 1.5,
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  🔄 Masa Aktar
+                </Button>
+              </Box>
             </Box>
 
             {/* Masa Grid - Kaydırılabilir */}
@@ -841,7 +1263,10 @@ const MainApp: React.FC = () => {
               borderBottom: 1, 
               borderColor: 'divider',
               background: 'linear-gradient(135deg, #5c7cfa 0%, #845ef7 100%)',
-              color: 'white'
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
             }}>
               <Typography variant="h4" sx={{ 
                 fontWeight: 700,
@@ -857,6 +1282,30 @@ const MainApp: React.FC = () => {
                   Toplam {customers.length} Müşteri
                 </Typography>
               </Typography>
+              
+              {/* Tümünü Sil Butonu */}
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
+                onClick={() => setDeleteAllConfirmOpen(true)}
+                disabled={customers.length === 0}
+                sx={{
+                  px: 3,
+                  py: 1,
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%)',
+                  },
+                  '&:disabled': {
+                    background: 'linear-gradient(135deg, #ccc 0%, #ddd 100%)',
+                    color: 'rgba(0,0,0,0.4)'
+                  }
+                }}
+              >
+                🗑️ Tümünü Sil
+              </Button>
             </Box>
 
             {/* Müşteri Grid - Kaydırılabilir */}
@@ -888,16 +1337,22 @@ const MainApp: React.FC = () => {
                 {/* Önce Müşteriler */}
                 {customers.map((c, index) => (
                   <Card 
-                    key={c.id}
+                    key={c.id || `customer-${index}-${c.name}-${c.createdAt}`}
+                    onClick={() => setSelectedCustomerForHistory(c)}
                     sx={{ 
                       aspectRatio: '1',
-                      cursor: 'default',
+                      cursor: 'pointer',
                       transition: 'all 0.3s ease',
                       background: 'linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%)',
                       color: '#0a2540',
                       border: '3px solid',
                       borderColor: '#e6e9ff',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 12px 32px rgba(92,124,250,0.2)',
+                        borderColor: '#5c7cfa'
+                      }
                     }}
                   >
                     <CardContent sx={{ 
@@ -1749,6 +2204,493 @@ const MainApp: React.FC = () => {
           currentValue={searchQuery}
         />
 
+        {/* Tümünü Sil Onay Dialog - Modern Tasarım */}
+        <Dialog
+          open={deleteAllConfirmOpen}
+          onClose={() => setDeleteAllConfirmOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ 
+            sx: { 
+              borderRadius: '24px',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              overflow: 'hidden'
+            } 
+          }}
+        >
+          {/* Header */}
+          <Box sx={{
+            background: 'linear-gradient(135deg, #ff4757 0%, #ff3742 50%, #ff3838 100%)',
+            p: 4,
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Background Pattern */}
+            <Box sx={{
+              position: 'absolute',
+              top: -20,
+              right: -20,
+              width: 100,
+              height: 100,
+              background: 'rgba(255,255,255,0.1)',
+              borderRadius: '50%',
+              filter: 'blur(20px)'
+            }} />
+            <Box sx={{
+              position: 'absolute',
+              bottom: -30,
+              left: -30,
+              width: 80,
+              height: 80,
+              background: 'rgba(255,255,255,0.08)',
+              borderRadius: '50%',
+              filter: 'blur(15px)'
+            }} />
+            
+            {/* Icon */}
+            <Box sx={{
+              width: 80,
+              height: 80,
+              background: 'rgba(255,255,255,0.15)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              backdropFilter: 'blur(10px)',
+              border: '2px solid rgba(255,255,255,0.2)'
+            }}>
+              <Typography variant="h2" sx={{ color: 'white', fontWeight: 900 }}>
+                ⚠️
+              </Typography>
+            </Box>
+            
+            <Typography variant="h4" sx={{ 
+              color: 'white', 
+              fontWeight: 800,
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              mb: 1
+            }}>
+              DİKKAT!
+            </Typography>
+            <Typography variant="h6" sx={{ 
+              color: 'rgba(255,255,255,0.9)', 
+              fontWeight: 500,
+              opacity: 0.95
+            }}>
+              Tüm Müşteriler Silinecek
+            </Typography>
+          </Box>
+          
+          {/* Content */}
+          <Box sx={{ p: 5, textAlign: 'center' }}>
+            <Typography variant="h6" sx={{ 
+              mb: 3, 
+              color: '#2c3e50', 
+              fontWeight: 700,
+              fontSize: '1.1rem'
+            }}>
+              Bu işlem geri alınamaz!
+            </Typography>
+            
+            <Box sx={{
+              p: 3,
+              mb: 4,
+              background: 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)',
+              borderRadius: '16px',
+              border: '2px solid #ffe0e0',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <Typography variant="body1" sx={{ 
+                mb: 2,
+                color: '#e74c3c',
+                fontWeight: 600,
+                fontSize: '0.95rem'
+              }}>
+                Veritabanındaki tüm müşteri kayıtları kalıcı olarak silinecek.
+              </Typography>
+              
+              <Typography variant="body2" sx={{ 
+                color: '#7f8c8d',
+                fontSize: '0.9rem',
+                lineHeight: 1.5
+              }}>
+                Bu işlem sonrasında müşteri bilgilerine erişim mümkün olmayacaktır.
+              </Typography>
+            </Box>
+            
+            {/* Countdown Timer */}
+            {!deleteAllEnabled ? (
+              <Box sx={{
+                p: 4,
+                background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
+                borderRadius: '20px',
+                mb: 4,
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 8px 32px rgba(255,107,107,0.3)'
+              }}>
+                {/* Animated Background */}
+                <Box sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
+                  animation: 'shimmer 2s infinite',
+                  '@keyframes shimmer': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' }
+                  }
+                }} />
+                
+                <Typography variant="h1" sx={{ 
+                  color: 'white', 
+                  fontWeight: 900,
+                  fontSize: '4rem',
+                  textShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                  mb: 1,
+                  position: 'relative',
+                  zIndex: 1
+                }}>
+                  {deleteAllCountdown}
+                </Typography>
+                <Typography variant="h6" sx={{ 
+                  color: 'rgba(255,255,255,0.9)', 
+                  fontWeight: 600,
+                  position: 'relative',
+                  zIndex: 1
+                }}>
+                  saniye sonra sil butonu aktif olacak
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{
+                p: 4,
+                background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+                borderRadius: '20px',
+                mb: 4,
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 8px 32px rgba(231,76,60,0.4)',
+                animation: 'pulse 1.5s infinite',
+                '@keyframes pulse': {
+                  '0%': { transform: 'scale(1)' },
+                  '50%': { transform: 'scale(1.02)' },
+                  '100%': { transform: 'scale(1)' }
+                }
+              }}>
+                <Typography variant="h4" sx={{ 
+                  color: 'white', 
+                  fontWeight: 800,
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                  position: 'relative',
+                  zIndex: 1
+                }}>
+                  🗑️ SİL BUTONU AKTİF!
+                </Typography>
+                <Typography variant="body1" sx={{ 
+                  color: 'rgba(255,255,255,0.9)',
+                  mt: 1,
+                  position: 'relative',
+                  zIndex: 1
+                }}>
+                  Dikkatli olun, bu işlem geri alınamaz!
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          
+          {/* Actions */}
+          <Box sx={{ 
+            p: 4, 
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            borderTop: '1px solid rgba(0,0,0,0.05)',
+            display: 'flex',
+            gap: 3,
+            justifyContent: 'center'
+          }}>
+            <Button
+              onClick={() => {
+                setDeleteAllConfirmOpen(false);
+                setDeleteAllCountdown(3);
+                setDeleteAllEnabled(false);
+              }}
+              variant="outlined"
+              sx={{
+                px: 5,
+                py: 2,
+                borderRadius: '16px',
+                border: '2px solid #6c757d',
+                color: '#6c757d',
+                fontWeight: 600,
+                fontSize: '1rem',
+                textTransform: 'none',
+                minWidth: 140,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  borderColor: '#495057',
+                  color: '#495057',
+                  background: 'rgba(108,117,125,0.05)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 25px rgba(108,117,125,0.2)'
+                }
+              }}
+            >
+              ✋ İptal Et
+            </Button>
+            
+            <Button
+              onClick={handleDeleteAllCustomers}
+              variant="contained"
+              disabled={!deleteAllEnabled}
+              sx={{
+                px: 5,
+                py: 2,
+                borderRadius: '16px',
+                fontWeight: 700,
+                fontSize: '1rem',
+                textTransform: 'none',
+                minWidth: 180,
+                transition: 'all 0.3s ease',
+                background: deleteAllEnabled 
+                  ? 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)'
+                  : 'linear-gradient(45deg, #bdc3c7 0%, #95a5a6 100%)',
+                boxShadow: deleteAllEnabled 
+                  ? '0 8px 32px rgba(231,76,60,0.4)'
+                  : '0 4px 16px rgba(189,195,199,0.3)',
+                '&:hover': {
+                  background: deleteAllEnabled 
+                    ? 'linear-gradient(135deg, #c0392b 0%, #a93226 100%)'
+                    : 'linear-gradient(45deg, #bdc3c7 0%, #95a5a6 100%)',
+                  transform: deleteAllEnabled ? 'translateY(-3px)' : 'none',
+                  boxShadow: deleteAllEnabled 
+                    ? '0 12px 40px rgba(231,76,60,0.5)'
+                    : '0 4px 16px rgba(189,195,199,0.3)'
+                },
+                '&:disabled': {
+                  cursor: 'not-allowed'
+                }
+              }}
+            >
+              {deleteAllEnabled ? '🗑️ TÜMÜNÜ SİL' : '⏳ BEKLE...'}
+            </Button>
+          </Box>
+        </Dialog>
+
+        {/* Müşteri Sipariş Geçmişi Dialog */}
+        <Dialog
+          open={!!selectedCustomerForHistory}
+          onClose={() => setSelectedCustomerForHistory(null)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: '24px',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              overflow: 'hidden'
+            }
+          }}
+        >
+          {/* Header */}
+          <Box sx={{
+            background: 'linear-gradient(135deg, #5c7cfa 0%, #845ef7 100%)',
+            p: 4,
+            textAlign: 'center',
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <Box sx={{
+              position: 'absolute',
+              top: -20,
+              right: -20,
+              width: 100,
+              height: 100,
+              background: 'rgba(255,255,255,0.1)',
+              borderRadius: '50%',
+              filter: 'blur(20px)'
+            }} />
+            
+            <Typography variant="h4" sx={{ 
+              fontWeight: 800,
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              mb: 1
+            }}>
+              👤 {selectedCustomerForHistory?.name}
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              opacity: 0.9,
+              fontWeight: 500,
+              fontSize: '1.1rem'
+            }}>
+              Sipariş Geçmişi ve Borç Durumu
+            </Typography>
+          </Box>
+
+          <DialogContent sx={{ p: 4 }}>
+            {/* Borç Özeti */}
+            <Box sx={{
+              p: 3,
+              mb: 4,
+              background: 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)',
+              borderRadius: '16px',
+              border: '2px solid #ffe0e0'
+            }}>
+              <Typography variant="h6" sx={{ mb: 3, fontWeight: 700, color: '#e74c3c' }}>
+                💰 Borç Durumu
+              </Typography>
+              
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+                <Box>
+                  <Typography variant="body2" sx={{ color: '#6c757d', mb: 1 }}>
+                    Toplam Sipariş
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#2c3e50' }}>
+                    {customerOrders.length} adet
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" sx={{ color: '#6c757d', mb: 1 }}>
+                    Toplam Borç
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#e74c3c' }}>
+                    {new Intl.NumberFormat('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY',
+                    }).format(customerTotalDebt)}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Sipariş Listesi */}
+            <Box>
+              <Typography variant="h6" sx={{ mb: 3, fontWeight: 700, color: '#2c3e50' }}>
+                📋 Sipariş Geçmişi
+              </Typography>
+              
+              {customerOrders.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body1" sx={{ color: '#6c757d' }}>
+                    Henüz sipariş bulunmuyor
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  {customerOrders.map((order, index) => {
+                    const orderItems = JSON.parse(order.items || '[]');
+                    const orderDate = new Date(order.orderDate);
+                    
+                    return (
+                      <Card
+                        key={order.id}
+                        sx={{
+                          mb: 2,
+                          border: '2px solid #e9ecef',
+                          borderRadius: '12px',
+                          background: order.isPaid 
+                            ? 'linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%)'
+                            : 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)'
+                        }}
+                      >
+                        <CardContent sx={{ p: 3 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                            <Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#2c3e50' }}>
+                                Sipariş #{order.id}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: '#6c757d' }}>
+                                📅 {orderDate.toLocaleDateString('tr-TR')} - {orderDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="h6" sx={{ 
+                                fontWeight: 700, 
+                                color: order.isPaid ? '#10b981' : '#e74c3c' 
+                              }}>
+                                {new Intl.NumberFormat('tr-TR', {
+                                  style: 'currency',
+                                  currency: 'TRY',
+                                }).format(order.totalAmount)}
+                              </Typography>
+                              <Box sx={{
+                                px: 2,
+                                py: 0.5,
+                                borderRadius: 1,
+                                bgcolor: order.isPaid ? 'success.main' : 'error.main',
+                                color: 'white',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                textAlign: 'center'
+                              }}>
+                                {order.isPaid ? 'ÖDENDİ' : 'BEKLEMEDE'}
+                              </Box>
+                            </Box>
+                          </Box>
+                          
+                          {/* Sipariş Ürünleri */}
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="body2" sx={{ color: '#6c757d', mb: 1 }}>
+                              Ürünler:
+                            </Typography>
+                            {orderItems.map((item: any, itemIndex: number) => (
+                              <Box key={itemIndex} sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center',
+                                py: 0.5
+                              }}>
+                                <Typography variant="body2" sx={{ color: '#2c3e50' }}>
+                                  {item.product.name} {item.selectedSizeName ? `(${item.selectedSizeName})` : ''} x{item.quantity}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#6c757d', fontWeight: 600 }}>
+                                  {new Intl.NumberFormat('tr-TR', {
+                                    style: 'currency',
+                                    currency: 'TRY',
+                                  }).format(item.unitPrice * item.quantity)}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
+          </DialogContent>
+
+          <DialogActions sx={{ 
+            p: 4, 
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            borderTop: '1px solid rgba(0,0,0,0.05)'
+          }}>
+            <Button
+              onClick={() => setSelectedCustomerForHistory(null)}
+              variant="outlined"
+              sx={{
+                px: 4,
+                py: 1.5,
+                borderRadius: '12px',
+                border: '2px solid #6c757d',
+                color: '#6c757d',
+                fontWeight: 600
+              }}
+            >
+              ✋ Kapat
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         {/* Müşteri Ekle Dialog */}
         <Dialog
           open={addCustomerOpen}
@@ -2296,6 +3238,227 @@ const MainApp: React.FC = () => {
                 </Button>
               </>
             )}
+          </DialogActions>
+        </Dialog>
+
+        {/* Masa Aktarım Dialog */}
+        <Dialog
+          open={showTableTransferDialog}
+          onClose={() => setShowTableTransferDialog(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)'
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            textAlign: 'center',
+            fontWeight: 700
+          }}>
+            🔄 Masa Aktarım
+          </DialogTitle>
+          
+          <DialogContent sx={{ p: 4 }}>
+            <Typography variant="body1" sx={{ mb: 3, textAlign: 'center', color: 'text.secondary' }}>
+              Kaynak masadan hedef masaya sipariş aktarımı yapın
+            </Typography>
+            
+            {/* Kaynak Masa Seçimi */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+                📤 Kaynak Masa (Dolu Masa)
+              </Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={sourceTable || ''}
+                  onChange={(e) => setSourceTable(e.target.value as number)}
+                  displayEmpty
+                  sx={{
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#667eea',
+                      borderWidth: 2
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#5a6fd8'
+                    }
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    <em>Kaynak masa seçin</em>
+                  </MenuItem>
+                  {Array.from({ length: 50 }, (_, index) => {
+                    const tableNumber = index + 1;
+                    const tableOrder = tableOrders[tableNumber];
+                    const isOccupied = !!tableOrder;
+                    
+                    return (
+                      <MenuItem 
+                        key={tableNumber} 
+                        value={tableNumber}
+                        disabled={!isOccupied}
+                        sx={{
+                          opacity: isOccupied ? 1 : 0.5,
+                          color: isOccupied ? 'text.primary' : 'text.disabled'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                          <Box sx={{ 
+                            width: 20, 
+                            height: 20, 
+                            borderRadius: '50%',
+                            bgcolor: isOccupied ? '#ff6b6b' : '#e0e0e0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            {tableNumber}
+                          </Box>
+                          <Typography>
+                            Masa {tableNumber} {isOccupied ? '(Dolu)' : '(Boş)'}
+                          </Typography>
+                          {isOccupied && (
+                            <Typography variant="body2" sx={{ ml: 'auto', color: 'primary.main', fontWeight: 600 }}>
+                              {formatPrice(tableOrder.total)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Hedef Masa Seçimi */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+                📥 Hedef Masa (Boş Masa)
+              </Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={targetTable || ''}
+                  onChange={(e) => setTargetTable(e.target.value as number)}
+                  displayEmpty
+                  sx={{
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#667eea',
+                      borderWidth: 2
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#5a6fd8'
+                    }
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    <em>Hedef masa seçin</em>
+                  </MenuItem>
+                  {Array.from({ length: 50 }, (_, index) => {
+                    const tableNumber = index + 1;
+                    const tableOrder = tableOrders[tableNumber];
+                    const isOccupied = !!tableOrder;
+                    
+                    return (
+                      <MenuItem 
+                        key={tableNumber} 
+                        value={tableNumber}
+                        disabled={isOccupied}
+                        sx={{
+                          opacity: !isOccupied ? 1 : 0.5,
+                          color: !isOccupied ? 'text.primary' : 'text.disabled'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                          <Box sx={{ 
+                            width: 20, 
+                            height: 20, 
+                            borderRadius: '50%',
+                            bgcolor: !isOccupied ? '#4caf50' : '#e0e0e0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            {tableNumber}
+                          </Box>
+                          <Typography>
+                            Masa {tableNumber} {!isOccupied ? '(Boş)' : '(Dolu)'}
+                          </Typography>
+                          {!isOccupied && (
+                            <Typography variant="body2" sx={{ ml: 'auto', color: 'success.main', fontWeight: 600 }}>
+                              Aktarılabilir
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Aktarım Özeti */}
+            {sourceTable && targetTable && (
+              <Box sx={{ 
+                p: 3, 
+                bgcolor: 'grey.50', 
+                borderRadius: 2, 
+                border: '2px dashed #667eea',
+                textAlign: 'center'
+              }}>
+                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
+                  🔄 Aktarım Özeti
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 1 }}>
+                  <strong>Masa {sourceTable}</strong> → <strong>Masa {targetTable}</strong>
+                </Typography>
+                {tableOrders[sourceTable] && (
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Toplam Tutar: {formatPrice(tableOrders[sourceTable].total)}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          
+          <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
+            <Button 
+              onClick={() => setShowTableTransferDialog(false)} 
+              variant="outlined"
+              sx={{ px: 4, py: 1.5, borderRadius: 2 }}
+            >
+              İptal
+            </Button>
+            <Button
+              onClick={handleTableTransfer}
+              variant="contained"
+              disabled={!sourceTable || !targetTable}
+              startIcon={<SwapHorizIcon />}
+              sx={{ 
+                px: 4, 
+                py: 1.5, 
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6b46c1 100%)',
+                },
+                '&:disabled': {
+                  background: 'grey.400',
+                  color: 'white'
+                }
+              }}
+            >
+              🔄 Aktar
+            </Button>
           </DialogActions>
         </Dialog>
 

@@ -136,6 +136,7 @@ class DatabaseService {
           CREATE TABLE IF NOT EXISTS table_orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             table_number INTEGER NOT NULL,
+            items TEXT,
             total_amount REAL NOT NULL,
             start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
             is_active BOOLEAN DEFAULT 1,
@@ -164,8 +165,21 @@ class DatabaseService {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             phone TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        // Müşteri siparişleri tablosu
+        this.db!.exec(`
+          CREATE TABLE IF NOT EXISTS customer_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            items TEXT NOT NULL,
+            total_amount REAL NOT NULL,
+            order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_paid INTEGER DEFAULT 0,
+            payment_method TEXT,
+            FOREIGN KEY (customer_id) REFERENCES customers(id)
           )
         `);
       });
@@ -310,7 +324,7 @@ class DatabaseService {
     }
     try {
       console.log('📡 SQL sorgusu hazırlanıyor...');
-      const stmt = this.db.prepare('SELECT id, name, phone, created_at as createdAt, updated_at as updatedAt FROM customers ORDER BY id');
+      const stmt = this.db.prepare('SELECT id, name, phone, created_at as createdAt FROM customers ORDER BY id');
       const result = stmt.all() as any[];
       console.log('📋 SQL sorgu sonucu:', result);
       console.log('👥 Müşteri sayısı:', result?.length || 0);
@@ -321,13 +335,125 @@ class DatabaseService {
     }
   }
 
-  // Müşteri ekle
-  addCustomer(name: string, phone: string | null = null): boolean {
+  // Müşteri siparişi ekle
+  addCustomerOrder(customerId: number, items: any[], totalAmount: number, paymentMethod: string = 'Müşteri Özel'): boolean {
+    this.ensureConnection();
+    if (!this.db) {
+      console.error('❌ Müşteri siparişi ekleme hatası: Veritabanı bağlantısı yok');
+      return false;
+    }
+    try {
+      console.log('🔄 Müşteri siparişi ekleniyor:', { customerId, totalAmount, paymentMethod });
+      
+      const itemsJson = JSON.stringify(items);
+      const stmt = this.db.prepare(`
+        INSERT INTO customer_orders (customer_id, items, total_amount, payment_method) 
+        VALUES (?, ?, ?, ?)
+      `);
+      
+      const result = stmt.run(customerId, itemsJson, totalAmount, paymentMethod);
+      console.log('✅ Müşteri siparişi eklendi:', result.changes, 'satır');
+      return result.changes > 0;
+    } catch (error) {
+      console.error('❌ Müşteri siparişi ekleme hatası:', error);
+      return false;
+    }
+  }
+
+  // Müşteri siparişlerini getir
+  getCustomerOrders(customerId: number): Array<{ id: number; customerId: number; items: string; totalAmount: number; orderDate: string; isPaid: number; paymentMethod: string }> {
+    this.ensureConnection();
+    if (!this.db) {
+      console.log('❌ Database bağlantısı yok');
+      return [];
+    }
+    try {
+      console.log('🔄 Müşteri siparişleri yükleniyor:', customerId);
+      const stmt = this.db.prepare(`
+        SELECT id, customer_id as customerId, items, total_amount as totalAmount, 
+               order_date as orderDate, is_paid as isPaid, payment_method as paymentMethod
+        FROM customer_orders 
+        WHERE customer_id = ? 
+        ORDER BY order_date DESC
+      `);
+      const result = stmt.all(customerId) as any[];
+      console.log('📋 Müşteri siparişleri sonucu:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Müşteri siparişleri yüklenirken hata:', error);
+      return [];
+    }
+  }
+
+  // Müşteri toplam borcunu hesapla
+  getCustomerTotalDebt(customerId: number): number {
+    this.ensureConnection();
+    if (!this.db) {
+      return 0;
+    }
+    try {
+      const stmt = this.db.prepare(`
+        SELECT SUM(total_amount) as totalDebt
+        FROM customer_orders 
+        WHERE customer_id = ? AND is_paid = 0
+      `);
+      const result = stmt.get(customerId) as any;
+      return result?.totalDebt || 0;
+    } catch (error) {
+      console.error('❌ Müşteri borç hesaplama hatası:', error);
+      return 0;
+    }
+  }
+
+  // Tüm müşterileri sil
+  deleteAllCustomers(): boolean {
+    this.ensureConnection();
+    if (!this.db) {
+      console.error('❌ Tüm müşterileri silme hatası: Veritabanı bağlantısı yok');
+      return false;
+    }
+    try {
+      console.log('🗑️ Tüm müşteriler siliniyor...');
+      
+      // Transaction kullanarak güvenli silme
+      const transaction = this.db.transaction(() => {
+        // Önce customer_orders tablosundan sil (foreign key constraint)
+        const deleteOrdersStmt = this.db!.prepare('DELETE FROM customer_orders');
+        const ordersResult = deleteOrdersStmt.run();
+        console.log('🗑️ Customer orders silindi:', ordersResult.changes, 'satır');
+        
+        // Sonra customers tablosundan sil
+        const deleteCustomersStmt = this.db!.prepare('DELETE FROM customers');
+        const customersResult = deleteCustomersStmt.run();
+        console.log('🗑️ Customers silindi:', customersResult.changes, 'satır');
+        
+        // AUTOINCREMENT'i sıfırla (güvenli şekilde)
+        try {
+          this.db!.exec('DELETE FROM sqlite_sequence WHERE name = "customers"');
+          this.db!.exec('DELETE FROM sqlite_sequence WHERE name = "customer_orders"');
+        } catch (seqError) {
+          console.warn('⚠️ sqlite_sequence sıfırlama hatası (önemli değil):', seqError);
+        }
+        
+        return customersResult.changes >= 0; // 0 veya pozitif sayı başarılı
+      });
+      
+      const result = transaction();
+      console.log('✅ Tüm müşteriler başarıyla silindi, sonuç:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Tüm müşterileri silme hatası:', error);
+      return false;
+    }
+  }
+
+  // Müşteri ekle ve eklenen satırı döndür
+  addCustomer(name: string, phone: string | null = null): { id: number; name: string; phone?: string; createdAt: string } | null {
     console.log('🔄 Database addCustomer çağrıldı:', { name, phone });
     this.ensureConnection();
     if (!this.db) {
       console.error('❌ Müşteri ekleme hatası: Veritabanı bağlantısı yok');
-      return false;
+      return null;
     }
     try {
       console.log('📡 Tablo varlığı kontrol ediliyor...');
@@ -337,16 +463,49 @@ class DatabaseService {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           phone TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('✅ Tablo kontrol edildi/oluşturuldu, INSERT sorgusu hazırlanıyor...');
-      const stmt = this.db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
-      const result = stmt.run(name, phone);
-      console.log('📋 INSERT sonucu:', result);
-      console.log('✅ Müşteri ekleme başarılı:', result.changes > 0);
-      return result.changes > 0;
+      console.log('✅ Tablo kontrol edildi/oluşturuldu, INSERT + RETURNING deneniyor...');
+      try {
+        const returning = this.db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?) RETURNING id, name, phone, created_at as createdAt').get(name, phone) as any;
+        if (returning) {
+          console.log('📋 INSERT RETURNING satırı:', returning);
+          return returning;
+        }
+      } catch (retErr) {
+        console.warn('⚠️ RETURNING desteklenmiyor, klasik INSERT yöntemine düşülüyor:', retErr);
+        const stmt = this.db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
+        const result = stmt.run(name, phone ?? null);
+        console.log('📋 INSERT sonucu:', result);
+        // Önce run() dönen id'yi dene, sonra last_insert_rowid()
+        let insertedId: number | null = null;
+        const rid = (result as any).lastInsertRowid;
+        if (typeof rid === 'bigint') {
+          insertedId = Number(rid);
+        } else if (typeof rid === 'number') {
+          insertedId = rid || null;
+        }
+        if (!insertedId) {
+          try {
+            const idRow = this.db.prepare('SELECT last_insert_rowid() as id').get() as any;
+            insertedId = Number(idRow?.id) || null;
+          } catch {}
+        }
+        if (result.changes > 0) {
+          if (insertedId) {
+            const byId = this.db.prepare('SELECT id, name, phone, created_at as createdAt FROM customers WHERE id = ?').get(insertedId) as any;
+            if (byId) return byId;
+          }
+          // Fallback: son satırı oku
+          const rowStmt = this.db.prepare('SELECT id, name, phone, created_at as createdAt FROM customers ORDER BY id DESC LIMIT 1');
+          const row = rowStmt.get() as any;
+          if (row) return row;
+          // Hiçbir şekilde satır okunamadıysa null dön
+          return null;
+        }
+      }
+      return null;
     } catch (error) {
       console.error('❌ Müşteri ekleme hatası:', error);
       // Otomatik iyileştirme: tablo yoksa oluştur ve tekrar dene
@@ -359,21 +518,42 @@ class DatabaseService {
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               name TEXT NOT NULL,
               phone TEXT,
-              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
           `);
           console.log('✅ Tablo oluşturuldu, tekrar INSERT deneniyor...');
           const retry = this.db!.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
-          const result = retry.run(name, phone);
+          const result = retry.run(name, phone ?? null);
           console.log('📋 Retry INSERT sonucu:', result);
-          return result.changes > 0;
+          if (result.changes > 0) {
+            let insertedId: number | null = null;
+            const rid = (result as any).lastInsertRowid;
+            if (typeof rid === 'bigint') {
+              insertedId = Number(rid);
+            } else if (typeof rid === 'number') {
+              insertedId = rid || null;
+            }
+            if (!insertedId) {
+              try {
+                const idRow = this.db!.prepare('SELECT last_insert_rowid() as id').get() as any;
+                insertedId = Number(idRow?.id) || null;
+              } catch {}
+            }
+            if (insertedId) {
+              const byId = this.db!.prepare('SELECT id, name, phone, created_at as createdAt FROM customers WHERE id = ?').get(insertedId) as any;
+              if (byId) return byId;
+            }
+            const rowStmt = this.db!.prepare('SELECT id, name, phone, created_at as createdAt FROM customers ORDER BY id DESC LIMIT 1');
+            const row = rowStmt.get() as any;
+            return row || null;
+          }
+          return null;
         } catch (e2) {
           console.error('❌ Müşteri ekleme/otomatik tablo oluşturma hatası:', e2);
-          return false;
+          return null;
         }
       }
-      return false;
+      return null;
     }
   }
 
@@ -1212,6 +1392,93 @@ class DatabaseService {
           mixed: { count: 0, amount: 0 }
         }
       };
+    }
+  }
+
+  // Masa aktarım fonksiyonu
+  transferTableOrder(sourceTable: number, targetTable: number): boolean {
+    this.ensureConnection();
+    if (!this.db) {
+      console.error('❌ Masa aktarım hatası: Veritabanı bağlantısı yok');
+      return false;
+    }
+    try {
+      console.log(`🔄 Masa ${sourceTable} -> Masa ${targetTable} aktarımı başlıyor...`);
+      
+      // Transaction kullanarak güvenli aktarım
+      const transaction = this.db.transaction(() => {
+        // Kaynak masadan siparişi al
+        const getSourceStmt = this.db!.prepare('SELECT * FROM table_orders WHERE table_number = ? AND is_active = 1');
+        const sourceOrder = getSourceStmt.get(sourceTable) as any;
+        
+        if (!sourceOrder) {
+          console.error(`❌ Masa ${sourceTable} için aktif sipariş bulunamadı`);
+          return false;
+        }
+
+        // Kaynak masanın sipariş detaylarını al
+        const getSourceItemsStmt = this.db!.prepare('SELECT * FROM table_order_items WHERE table_order_id = ?');
+        const sourceItems = getSourceItemsStmt.all(sourceOrder.id) as any[];
+        
+        if (!sourceItems || sourceItems.length === 0) {
+          console.error(`❌ Masa ${sourceTable} için sipariş detayları bulunamadı`);
+          return false;
+        }
+
+        // Hedef masanın boş olduğunu kontrol et
+        const getTargetStmt = this.db!.prepare('SELECT * FROM table_orders WHERE table_number = ? AND is_active = 1');
+        const targetOrder = getTargetStmt.get(targetTable);
+        
+        if (targetOrder) {
+          console.error(`❌ Masa ${targetTable} zaten dolu`);
+          return false;
+        }
+
+        // Kaynak masayı kapat
+        const closeSourceStmt = this.db!.prepare('UPDATE table_orders SET is_active = 0 WHERE table_number = ? AND is_active = 1');
+        const closeResult = closeSourceStmt.run(sourceTable);
+        console.log(`🗑️ Masa ${sourceTable} kapatıldı:`, closeResult.changes, 'satır');
+
+        // Hedef masaya siparişi aktar
+        const insertTargetStmt = this.db!.prepare(`
+          INSERT INTO table_orders (table_number, total_amount, start_time, is_active) 
+          VALUES (?, ?, ?, 1)
+        `);
+        const insertResult = insertTargetStmt.run(
+          targetTable, 
+          sourceOrder.total_amount, 
+          sourceOrder.start_time
+        );
+        console.log(`✅ Masa ${targetTable} aktarımı tamamlandı:`, insertResult.changes, 'satır');
+
+        // Hedef masanın sipariş detaylarını aktar
+        const targetOrderId = insertResult.lastInsertRowid;
+        for (const item of sourceItems) {
+          const insertItemStmt = this.db!.prepare(`
+            INSERT INTO table_order_items (table_order_id, product_id, product_name, quantity, unit_price, total_price, category)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `);
+          const itemResult = insertItemStmt.run(
+            targetOrderId,
+            item.product_id,
+            item.product_name,
+            item.quantity,
+            item.unit_price,
+            item.total_price,
+            item.category
+          );
+          console.log(`📦 Ürün aktarımı: ${item.product_name} x${item.quantity}`);
+        }
+
+        return true;
+      });
+      
+      const result = transaction();
+      console.log('✅ Masa aktarımı başarıyla tamamlandı, sonuç:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Masa aktarım hatası:', error);
+      return false;
     }
   }
 }

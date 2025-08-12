@@ -581,19 +581,90 @@ ipcMain.handle('db-add-customer', async (event, name: string, phone?: string) =>
   try {
     if (!name || !name.trim()) {
       console.error('❌ Geçersiz müşteri adı:', name);
-      return false;
+      return null;
     }
     console.log('📡 Database instance alındı, addCustomer çağrılıyor...');
     const db = getDatabase();
-    const ok = db.addCustomer(name.trim(), phone?.trim() || null);
-    console.log('✅ db-add-customer sonucu:', ok);
-    return ok;
+    const row = db.addCustomer(name.trim(), phone?.trim() || null);
+    const ok = !!row && !!row.id;
+    console.log('✅ db-add-customer sonucu:', ok, row);
+    return row ?? null;
   } catch (error) {
     console.error('❌ Database add customer error:', error);
-    return false;
+    return null;
   }
 });
 console.log('🔧 db-add-customer handler kaydedildi');
+
+ipcMain.handle('db-delete-all-customers', async () => {
+  console.log('🔄 IPC Handler çağrıldı: db-delete-all-customers');
+  try {
+    const db = getDatabase();
+    const result = db.deleteAllCustomers();
+    console.log('✅ db-delete-all-customers sonucu:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database delete all customers error:', error);
+    return false;
+  }
+});
+console.log('🔧 db-delete-all-customers handler kaydedildi');
+
+ipcMain.handle('db-add-customer-order', async (event, customerId: number, items: any[], totalAmount: number, paymentMethod?: string) => {
+  console.log('🔄 IPC Handler çağrıldı: db-add-customer-order', { customerId, totalAmount, paymentMethod });
+  try {
+    const db = getDatabase();
+    const result = db.addCustomerOrder(customerId, items, totalAmount, paymentMethod);
+    console.log('✅ db-add-customer-order sonucu:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database add customer order error:', error);
+    return false;
+  }
+});
+console.log('🔧 db-add-customer-order handler kaydedildi');
+
+ipcMain.handle('db-get-customer-orders', async (event, customerId: number) => {
+  console.log('🔄 IPC Handler çağrıldı: db-get-customer-orders', { customerId });
+  try {
+    const db = getDatabase();
+    const result = db.getCustomerOrders(customerId);
+    console.log('✅ db-get-customer-orders sonucu:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database get customer orders error:', error);
+    return [];
+  }
+});
+console.log('🔧 db-get-customer-orders handler kaydedildi');
+
+ipcMain.handle('db-get-customer-total-debt', async (event, customerId: number) => {
+  console.log('🔄 IPC Handler çağrıldı: db-get-customer-total-debt', { customerId });
+  try {
+    const db = getDatabase();
+    const result = db.getCustomerTotalDebt(customerId);
+    console.log('✅ db-get-customer-total-debt sonucu:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database get customer total debt error:', error);
+    return 0;
+  }
+});
+console.log('🔧 db-get-customer-total-debt handler kaydedildi');
+
+ipcMain.handle('db-transfer-table-order', async (event, sourceTable: number, targetTable: number) => {
+  console.log('🔄 IPC Handler çağrıldı: db-transfer-table-order', { sourceTable, targetTable });
+  try {
+    const db = getDatabase();
+    const result = db.transferTableOrder(sourceTable, targetTable);
+    console.log('✅ db-transfer-table-order sonucu:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database transfer table order error:', error);
+    return false;
+  }
+});
+console.log('🔧 db-transfer-table-order handler kaydedildi');
 
 console.log('🔧 IPC Handlers kaydediliyor...');
 console.log('🔧 db-get-active-table-orders handler kaydedildi');
@@ -602,3 +673,4 @@ console.log('🔧 db-add-to-table-order handler kaydedildi');
 console.log('🔧 db-close-table-order handler kaydedildi');
 console.log('🔧 db-get-customers handler kaydedildi');
 console.log('🔧 db-add-customer handler kaydedildi');
+console.log('🔧 db-transfer-table-order handler kaydedildi');

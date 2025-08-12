@@ -54,7 +54,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Müşteri işlemleri
     getCustomers: () => ipcRenderer.invoke('db-get-customers'),
-    addCustomer: (name: string, phone?: string) => ipcRenderer.invoke('db-add-customer', name, phone)
+    addCustomer: (name: string, phone?: string) => ipcRenderer.invoke('db-add-customer', name, phone),
+    deleteAllCustomers: () => ipcRenderer.invoke('db-delete-all-customers'),
+    addCustomerOrder: (customerId: number, items: any[], totalAmount: number, paymentMethod?: string) => 
+      ipcRenderer.invoke('db-add-customer-order', customerId, items, totalAmount, paymentMethod),
+    getCustomerOrders: (customerId: number) => ipcRenderer.invoke('db-get-customer-orders', customerId),
+    getCustomerTotalDebt: (customerId: number) => ipcRenderer.invoke('db-get-customer-total-debt', customerId),
+    transferTableOrder: (sourceTable: number, targetTable: number) => ipcRenderer.invoke('db-transfer-table-order', sourceTable, targetTable)
   }
 });
 

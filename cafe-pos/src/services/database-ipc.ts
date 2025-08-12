@@ -245,16 +245,64 @@ export class DatabaseIPCService {
     }
   }
 
-  async addCustomer(name: string, phone?: string): Promise<boolean> {
+  async addCustomer(name: string, phone?: string): Promise<Customer | null> {
     try {
       console.log('🔄 Renderer addCustomer çağrıldı:', { name, phone });
       console.log('📡 electronAPI.database.addCustomer çağrılıyor...');
-      const result = await (window as any).electronAPI.database.addCustomer(name, phone);
-      console.log('✅ Renderer addCustomer sonucu:', result);
-      return result;
+      const row = await (window as any).electronAPI.database.addCustomer(name, phone);
+      console.log('✅ Renderer addCustomer sonucu (row):', row);
+      return row || null;
     } catch (error) {
       console.error('❌ Renderer müşteri ekleme hatası:', error);
+      return null;
+    }
+  }
+
+  async deleteAllCustomers(): Promise<boolean> {
+    try {
+      console.log('🔄 Renderer deleteAllCustomers çağrıldı...');
+      const result = await (window as any).electronAPI.database.deleteAllCustomers();
+      console.log('✅ Renderer deleteAllCustomers sonucu:', result);
+      return result || false;
+    } catch (error) {
+      console.error('❌ Renderer tüm müşterileri silme hatası:', error);
       return false;
+    }
+  }
+
+  async addCustomerOrder(customerId: number, items: any[], totalAmount: number, paymentMethod?: string): Promise<boolean> {
+    try {
+      console.log('🔄 Renderer addCustomerOrder çağrıldı:', { customerId, totalAmount, paymentMethod });
+      const result = await (window as any).electronAPI.database.addCustomerOrder(customerId, items, totalAmount, paymentMethod);
+      console.log('✅ Renderer addCustomerOrder sonucu:', result);
+      return result || false;
+    } catch (error) {
+      console.error('❌ Renderer müşteri siparişi ekleme hatası:', error);
+      return false;
+    }
+  }
+
+  async getCustomerOrders(customerId: number): Promise<any[]> {
+    try {
+      console.log('🔄 Renderer getCustomerOrders çağrıldı:', customerId);
+      const result = await (window as any).electronAPI.database.getCustomerOrders(customerId);
+      console.log('✅ Renderer getCustomerOrders sonucu:', result);
+      return result || [];
+    } catch (error) {
+      console.error('❌ Renderer müşteri siparişleri yükleme hatası:', error);
+      return [];
+    }
+  }
+
+  async getCustomerTotalDebt(customerId: number): Promise<number> {
+    try {
+      console.log('🔄 Renderer getCustomerTotalDebt çağrıldı:', customerId);
+      const result = await (window as any).electronAPI.database.getCustomerTotalDebt(customerId);
+      console.log('✅ Renderer getCustomerTotalDebt sonucu:', result);
+      return result || 0;
+    } catch (error) {
+      console.error('❌ Renderer müşteri borç hesaplama hatası:', error);
+      return 0;
     }
   }
 
@@ -281,6 +329,18 @@ export class DatabaseIPCService {
       return await (window as any).electronAPI.database.closeTableOrder(tableNumber);
     } catch (error) {
       console.error('Masa siparişi kapatma hatası:', error);
+      return false;
+    }
+  }
+
+  async transferTableOrder(sourceTable: number, targetTable: number): Promise<boolean> {
+    try {
+      console.log('🔄 Renderer transferTableOrder çağrıldı:', { sourceTable, targetTable });
+      const result = await (window as any).electronAPI.database.transferTableOrder(sourceTable, targetTable);
+      console.log('✅ Renderer transferTableOrder sonucu:', result);
+      return result || false;
+    } catch (error) {
+      console.error('❌ Renderer masa aktarım hatası:', error);
       return false;
     }
   }

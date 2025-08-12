@@ -157,7 +157,7 @@ interface StoreState {
   showPaymentDialog: boolean;
   paymentStatus: 'waiting' | 'processing' | 'success' | 'error';
   paymentAmount: number;
-  paymentMode: 'normal' | 'split-items' | 'mixed';
+  paymentMode: 'normal' | 'split-items' | 'mixed' | 'customer-special';
   splitItemsPayment: Array<{itemId: string, paid: boolean}>;
   mixedPayment: {
     cashAmount: number;
@@ -224,7 +224,7 @@ interface StoreState {
   hidePaymentDialog: () => void;
   completePayment: () => void;
   cancelPayment: () => void;
-  setPaymentMode: (mode: 'normal' | 'split-items' | 'mixed') => void;
+  setPaymentMode: (mode: 'normal' | 'split-items' | 'mixed' | 'customer-special') => void;
   initializeSplitPayment: () => void;
   markItemAsPaid: (itemId: string) => void;
   setMixedPaymentAmounts: (cashAmount: number, cardAmount: number) => void;
@@ -256,17 +256,17 @@ export const useStore = create<StoreState>((set, get) => {
     // Admin Panel state
     showAdminPanel: false,
     
-    // Payment state
-    showPaymentDialog: false,
-    paymentStatus: 'waiting',
-    paymentAmount: 0,
-    paymentMode: 'normal',
-    splitItemsPayment: [],
-    mixedPayment: {
-      cashAmount: 0,
-      cardAmount: 0,
-      totalAmount: 0
-    },
+      // Payment state
+  showPaymentDialog: false,
+  paymentStatus: 'waiting',
+  paymentAmount: 0,
+      paymentMode: 'normal',
+  splitItemsPayment: [],
+  mixedPayment: {
+    cashAmount: 0,
+    cardAmount: 0,
+    totalAmount: 0
+  },
     
     // Receipt Preview state
     showReceiptPreview: false,
