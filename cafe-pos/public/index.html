@@ -930,7 +930,11 @@
             try {
                 console.log('🔄 Socket.IO bağlantısı başlatılıyor...');
                 
-                socket = io('http://192.168.0.20:3001', {
+                // Dinamik IP adresi - mevcut host'u kullan
+                const serverUrl = window.location.protocol + '//' + window.location.hostname + ':3001';
+                console.log('🔗 Sunucu URL:', serverUrl);
+                
+                socket = io(serverUrl, {
                     transports: ['websocket', 'polling'],
                     timeout: 20000
                 });
