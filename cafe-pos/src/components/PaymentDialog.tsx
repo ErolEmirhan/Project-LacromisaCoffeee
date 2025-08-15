@@ -30,6 +30,7 @@ import {
   ArrowBack as BackIcon
 } from '@mui/icons-material';
 import { useStore } from '../store/useStore';
+import soundEffects from '../services/soundEffects';
 
 const PaymentDialog: React.FC = () => {
   const { 
@@ -128,6 +129,7 @@ const PaymentDialog: React.FC = () => {
         };
         
         showReceiptPreviewDialog(receiptData);
+        soundEffects.playPaymentSuccess(); // Ödeme başarılı sesi
         completePayment();
         setCurrentStep('method');
         setSelectedPaymentMethod('');
@@ -197,6 +199,7 @@ const PaymentDialog: React.FC = () => {
       }
 
       showReceiptPreviewDialog(receiptData);
+      soundEffects.playPaymentSuccess(); // Ödeme başarılı sesi
       completePayment();
       setIsProcessing(false);
       setCurrentStep('method');

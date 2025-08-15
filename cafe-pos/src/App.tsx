@@ -33,7 +33,8 @@ import {
   Tooltip,
   Snackbar,
   Alert,
-  Slide
+  Slide,
+  Chip
 } from '@mui/material';
 import { 
   LocalCafe as LocalCafeIcon,
@@ -48,7 +49,10 @@ import {
   FullscreenExit as FullscreenExitIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  VolumeUp as VolumeUpIcon,
+  VolumeOff as VolumeOffIcon,
+  Inventory as InventoryIcon
 } from '@mui/icons-material';
 // Removed default MenuIcon in favor of custom modern hamburger
 import { useStore } from './store/useStore';
@@ -77,6 +81,9 @@ import AdminPanel from './components/AdminPanel';
 import AdminDashboard from './components/AdminDashboard';
 import VirtualKeyboard from './components/VirtualKeyboard';
 import QRCodeDialog from './components/QRCodeDialog';
+import soundEffects from './services/soundEffects';
+import StockManagement from './components/StockManagement';
+import stockService from './services/stockService';
 
 // Modern yeşil tema - #0a4940
 const theme = createTheme({
@@ -243,6 +250,7 @@ const MainApp: React.FC = () => {
   const [deleteAllCountdown, setDeleteAllCountdown] = React.useState(3);
   const [deleteAllEnabled, setDeleteAllEnabled] = React.useState(false);
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = React.useState<any>(null);
+  const [showStockManagement, setShowStockManagement] = React.useState(false);
   const [customerOrders, setCustomerOrders] = React.useState<any[]>([]);
   const [customerTotalDebt, setCustomerTotalDebt] = React.useState(0);
   
@@ -673,7 +681,18 @@ const MainApp: React.FC = () => {
     if (product?.sizes && product.sizes.length > 0) {
       openSizeSelection(product);
     } else {
-      addToCart(product);
+      // Stok kontrolü yap
+      if (stockService.checkStockAvailability(product.id, 1)) {
+        // Stoktan düş
+        stockService.decreaseStock(product.id, 1);
+        addToCart(product);
+        soundEffects.playAddToCart(); // Ürün sepete eklendiğinde başarı sesi
+        showToast(`${product.name} sepete eklendi`, 'success');
+      } else {
+        // Yetersiz stok
+        soundEffects.playError(); // Hata sesi
+        showToast(`${product.name} için yetersiz stok!`, 'error');
+      }
     }
   };
 
@@ -958,8 +977,8 @@ const MainApp: React.FC = () => {
                 color: '#0a4940',
                 border: { xs: '1px solid', sm: '2px solid' },
                 borderColor: '#0a4940',
-                width: { xs: 44, sm: 50, md: 56 },
-                height: { xs: 44, sm: 50, md: 56 },
+                width: { xs: 64, sm: 70, md: 76 },
+                height: { xs: 64, sm: 70, md: 76 },
                 '&:hover': {
                   bgcolor: '#0a4940',
                   color: 'white',
@@ -1024,6 +1043,16 @@ const MainApp: React.FC = () => {
                   />
                 </MenuItem>
 
+                <MenuItem onClick={() => { setShowStockManagement(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    <InventoryIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Stok Takibi" 
+                    secondary="Ürün stok durumları ve yönetimi"
+                  />
+                </MenuItem>
+
                 <Divider sx={{ my: 2 }} />
                 
                 {/* Müşteri İşlemleri */}
@@ -1054,6 +1083,26 @@ const MainApp: React.FC = () => {
                   <ListItemText 
                     primary="Hızlı Müşteri Ekle" 
                     secondary="Yeni müşteri kaydı oluştur"
+                  />
+                </MenuItem>
+
+                <Divider sx={{ my: 2 }} />
+                
+                {/* Ses Ayarları */}
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}>
+                  🔊 SES AYARLARI
+                </Typography>
+                
+                <MenuItem onClick={() => { 
+                  const isEnabled = soundEffects.toggleSound();
+                  showToast(`Ses ${isEnabled ? 'açıldı' : 'kapatıldı'}`, 'info');
+                }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
+                  <ListItemIcon>
+                    {soundEffects.isSoundEnabled() ? <VolumeUpIcon /> : <VolumeOffIcon />}
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={`Ses ${soundEffects.isSoundEnabled() ? 'Kapat' : 'Aç'}`}
+                    secondary={`Ses efektleri ${soundEffects.isSoundEnabled() ? 'aktif' : 'kapalı'}`}
                   />
                 </MenuItem>
 
@@ -2060,14 +2109,33 @@ const MainApp: React.FC = () => {
                       </Typography>
                       
                       <Box>
-                        <Typography variant="h6" sx={{ 
-                          color: 'primary.main', 
-                          fontWeight: 700,
-                          fontSize: '1.1rem',
-                          mb: 1.5
-                        }}>
-                          {formatPrice(product.price)}
-                        </Typography>
+                                              <Typography variant="h6" sx={{ 
+                        color: 'primary.main', 
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        mb: 1
+                      }}>
+                        {formatPrice(product.price)}
+                      </Typography>
+                      
+                      {/* Stok Bilgisi */}
+                      <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={`Stok: ${stockService.getProductStock(product.id)} adet`}
+                          size="small"
+                          color={stockService.getProductStock(product.id) > 0 ? 'success' : 'error'}
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', height: '20px' }}
+                        />
+                        {stockService.getProductStock(product.id) <= 10 && (
+                          <Chip
+                            label="Düşük Stok!"
+                            size="small"
+                            color="warning"
+                            sx={{ fontSize: '0.7rem', height: '20px' }}
+                          />
+                        )}
+                      </Box>
                         
                          <Button
                           fullWidth
@@ -3032,8 +3100,19 @@ const MainApp: React.FC = () => {
               <Button
                 onClick={() => {
                   if (sizeSelectProduct && selectedSizeId) {
-                    addToCart(sizeSelectProduct, { sizeId: selectedSizeId });
-                    closeSizeSelection();
+                    // Stok kontrolü yap
+                    if (stockService.checkStockAvailability(sizeSelectProduct.id, 1)) {
+                      // Stoktan düş
+                      stockService.decreaseStock(sizeSelectProduct.id, 1);
+                      addToCart(sizeSelectProduct, { sizeId: selectedSizeId });
+                      soundEffects.playAddToCart(); // Size ile ürün sepete eklendiğinde başarı sesi
+                      showToast(`${sizeSelectProduct.name} sepete eklendi`, 'success');
+                      closeSizeSelection();
+                    } else {
+                      // Yetersiz stok
+                      soundEffects.playError(); // Hata sesi
+                      showToast(`${sizeSelectProduct.name} için yetersiz stok!`, 'error');
+                    }
                   }
                 }}
                 variant="contained"
@@ -3238,9 +3317,12 @@ const MainApp: React.FC = () => {
                       setSelectedTableNumber(null);
                       // Modern toast
                       showToast(`Masa ${selectedTableNumber} için sipariş kaydedildi`, 'success');
+                      // Sipariş kaydedildiğinde başarı sesi
+                      soundEffects.playOrderSaved();
                     } else {
                       console.error('❌ Masa siparişi kaydedilemedi - tüm denemeler başarısız');
                       showToast('Masa siparişi kaydedilemedi! Tekrar deneyin.', 'error');
+                      soundEffects.playError(); // Hata sesi
                     }
                   } catch (error: any) {
                     console.error('❌ Masa siparişi kaydetme hatası:', error);
@@ -3776,6 +3858,12 @@ const MainApp: React.FC = () => {
           open={showQRCodeDialog}
           onClose={() => setShowQRCodeDialog(false)}
           pcIpAddress={pcIpAddress}
+        />
+
+        {/* Stok Yönetimi Dialog'u */}
+        <StockManagement
+          open={showStockManagement}
+          onClose={() => setShowStockManagement(false)}
         />
 
         {/* Modern toast bildirimleri */}
