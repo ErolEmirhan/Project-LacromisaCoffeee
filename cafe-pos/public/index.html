@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lacromisa Coffee - Masa Yönetimi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+            background: #f8fffe;
+            color: #1a1a1a;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Header - PC Uygulamasıyla Aynı */
+        .header {
+            background: linear-gradient(135deg, #0a4940 0%, #2e6b63 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .header-title h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .header-title .coffee-icon {
+            font-size: 2.5rem;
+        }
+        
+        .header-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        /* Gerçek Zamanlı Senkronizasyon Bilgisi */
+        .sync-status {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .sync-status h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sync-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .sync-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        /* Aktif Masa Siparişleri */
+        .active-orders {
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        
+        .active-orders h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            color: #0a4940;
+        }
+        
+        .order-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .order-card {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.4);
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .order-card .table-number {
+            font-weight: 700;
+            color: #0a4940;
+            margin-bottom: 5px;
+        }
+        
+        .order-card .order-info {
+            opacity: 0.8;
+        }
+        
+        /* Masa Yönetimi Başlığı */
+        .table-management-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+        
+        .table-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .table-title h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0a4940;
+            margin: 0;
+        }
+        
+        .table-count {
+            font-size: 1.1rem;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        /* Masa Grid - PC Uygulamasıyla Aynı */
+        .table-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .table-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 3px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .table-card:hover {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 12px 30px rgba(10, 73, 64, 0.15);
+            border-color: #0a4940;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f8f6 100%);
+        }
+        
+        .table-card.occupied {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            border-color: #ff4757;
+            color: white;
+        }
+        
+        .table-card.occupied:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #d32f2f 100%);
+            border-color: #ff3742;
+        }
+        
+        .table-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #0a4940;
+            text-shadow: 0 2px 4px rgba(10, 73, 64, 0.1);
+            margin-bottom: 15px;
+        }
+        
+        .table-card.occupied .table-number {
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .table-icon {
+            width: 60px;
+            height: 60px;
+            background: #8B4513;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .table-icon::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 8px;
+            background: #654321;
+            border-radius: 4px;
+        }
+        
+        .table-status {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0a4940;
+            margin-bottom: 10px;
+        }
+        
+        .table-card.occupied .table-status {
+            color: white;
+        }
+        
+        .table-info {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .table-price {
+            font-size: 1rem;
+            font-weight: 700;
+            opacity: 0.9;
+        }
+        
+        .table-hint {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        
+        .table-card.occupied .table-hint {
+            color: rgba(255,255,255,0.8);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .table-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+                padding: 15px;
+            }
+            
+            .table-card {
+                padding: 15px;
+            }
+            
+            .table-number {
+                font-size: 2rem;
+            }
+            
+            .table-icon {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .table-management-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                padding: 10px;
+            }
+            
+            .table-card {
+                padding: 12px;
+            }
+            
+            .table-number {
+                font-size: 1.8rem;
+            }
+            
+            .table-icon {
+                width: 40px;
+                height: 40px;
+            }
+        }
+        
+        /* Modal Stilleri */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 20px;
+            border-radius: 15px;
+            padding: 0;
+            max-width: 800px;
+            margin: 20px auto;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #0a4940 0%, #2e6b63 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Kategori Filtresi */
+        .category-filter {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .category-btn {
+            padding: 8px 16px;
+            border: 2px solid #0a4940;
+            background: white;
+            color: #0a4940;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .category-btn.active,
+        .category-btn:hover {
+            background: #0a4940;
+            color: white;
+        }
+        
+        /* Ürün Grid */
+        .products-grid {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .product-card {
+            border: 2px solid #eee;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .product-card:hover {
+            border-color: #0a4940;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .product-card.hidden {
+            display: none;
+        }
+        
+        .product-name {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #0a4940;
+        }
+        
+        .product-price {
+            font-size: 1.2em;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .product-category {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+        
+        .add-to-cart-btn {
+            background: #0a4940;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            width: 100%;
+        }
+        
+        .add-to-cart-btn:hover {
+            background: #2e6b63;
+        }
+        
+        /* Sepet */
+        .cart-section {
+            border-top: 1px solid #eee;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .cart-items {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        .cart-item-info {
+            flex: 1;
+        }
+        
+        .cart-item-name {
+            font-weight: bold;
+            color: #0a4940;
+        }
+        
+        .cart-item-price {
+            color: #e74c3c;
+            font-size: 0.9em;
+        }
+        
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .quantity-btn {
+            background: #0a4940;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .quantity-btn:hover {
+            background: #2e6b63;
+        }
+        
+        .quantity-display {
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+        
+        .cart-total {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #0a4940;
+        }
+        
+        .save-order-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .save-order-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+        
+        .save-order-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* Mobil Responsive */
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 10px;
+                max-height: 95vh;
+            }
+            
+            .products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 10px;
+            }
+            
+            .category-filter {
+                padding: 15px;
+            }
+            
+            .category-btn {
+                padding: 6px 12px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header - PC Uygulamasıyla Aynı -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <span class="coffee-icon">☕</span>
+                    <h1>Lacromisa Coffee</h1>
+                </div>
+                <div class="header-subtitle">Masa Yönetimi - Telefon Erişimi</div>
+                
+                <!-- Gerçek Zamanlı Senkronizasyon Bilgisi -->
+                <div class="sync-status" id="syncStatus">
+                    <h3>
+                        <span class="sync-indicator" id="syncIndicator"></span>
+                        🔄 Gerçek Zamanlı Senkronizasyon
+                    </h3>
+                    <div class="sync-details" id="syncDetails">
+                        <span>📱 Client ID: <span id="clientId">Bağlanıyor...</span></span>
+                        <span>🔗 Bağlantı: <span id="connectionAttempts">0</span> deneme</span>
+                        <span>⏰ Son güncelleme: <span id="lastSyncTime">-</span></span>
+                    </div>
+                </div>
+                
+                <!-- Aktif Masa Siparişleri -->
+                <div class="active-orders" id="activeOrders" style="display: none;">
+                    <h3>🍽️ Aktif Masa Siparişleri (<span id="activeOrderCount">0</span>)</h3>
+                    <div class="order-cards" id="orderCards">
+                        <!-- Aktif siparişler burada görünecek -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Masa Yönetimi Başlığı -->
+        <div class="table-management-header">
+            <div class="table-title">
+                <h2>🪑 Masa Yönetimi</h2>
+                <span class="table-count">Toplam 50 Masa</span>
+            </div>
+        </div>
+        
+        <!-- Masa Grid - PC Uygulamasıyla Aynı -->
+        <div class="table-grid" id="tableGrid">
+            <!-- 50 masa burada dinamik olarak oluşturulacak -->
+        </div>
+    </div>
+    
+    <!-- Ürün Seçme Modalı -->
+    <div id="productModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🍽️ <span id="selectedTableText">Masa</span> - Ürün Seçimi</h2>
+                <button class="close-btn" onclick="closeProductModal()">&times;</button>
+            </div>
+            
+            <!-- Kategori Filtresi -->
+            <div class="category-filter">
+                <button class="category-btn active" onclick="filterByCategory('all')">🔍 Tümü</button>
+                <div id="categoryButtons">
+                    <!-- Kategoriler buraya dinamik olarak eklenecek -->
+                </div>
+            </div>
+            
+            <!-- Ürün Listesi -->
+            <div class="products-grid" id="productsGrid">
+                <!-- Ürünler buraya dinamik olarak eklenecek -->
+            </div>
+            
+            <!-- Sepet -->
+            <div class="cart-section">
+                <h3>🛒 Sepet (<span id="cartCount">0</span> ürün)</h3>
+                <div class="cart-items" id="cartItems">
+                    <!-- Sepet ürünleri buraya eklenecek -->
+                </div>
+                <div class="cart-total">
+                    <strong>Toplam: <span id="cartTotal">0.00</span> TL</strong>
+                </div>
+                <button class="save-order-btn" onclick="saveOrder()">💾 Masaya Kaydet</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Global değişkenler
+        let socket;
+        let tableOrders = {};
+        let isConnected = false;
+        let products = [];
+        let categories = [];
+        let cart = [];
+        let selectedTable = null;
+        let filteredProducts = [];
+        
+        // Sayfa yüklendiğinde
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
+            renderTables();
+        });
+        
+        // Socket.IO bağlantısını başlat
+        function initializeSocket() {
+            try {
+                console.log('🔄 Socket.IO bağlantısı başlatılıyor...');
+                
+                socket = io('http://192.168.0.20:3001', {
+                    transports: ['websocket', 'polling'],
+                    timeout: 20000
+                });
+                
+                socket.on('connect', function() {
+                    console.log('✅ WebSocket bağlandı, ID:', socket.id);
+                    isConnected = true;
+                    updateConnectionStatus(true);
+                    
+                    // Client hazır olduğunu bildir
+                    socket.emit('client_ready', {
+                        clientType: 'mobile',
+                        timestamp: new Date().toISOString()
+                    });
+                });
+                
+                socket.on('disconnect', function() {
+                    console.log('❌ WebSocket bağlantısı kesildi');
+                    isConnected = false;
+                    updateConnectionStatus(false);
+                });
+                
+                socket.on('table_order_updated', function(data) {
+                    console.log('📊 Masa siparişi güncellendi:', data);
+                    updateTableOrder(data);
+                });
+                
+                socket.on('table_order_created', function(data) {
+                    console.log('🆕 Yeni masa siparişi:', data);
+                    updateTableOrder(data);
+                });
+                
+                socket.on('table_order_closed', function(data) {
+                    console.log('🔒 Masa siparişi kapatıldı:', data);
+                    removeTableOrder(data.tableNumber);
+                });
+                
+                socket.on('connect_error', function(error) {
+                    console.error('❌ Bağlantı hatası:', error);
+                    updateConnectionStatus(false);
+                });
+                
+                // Mevcut masa siparişlerini al
+                socket.on('current_table_orders', function(orders) {
+                    console.log('📋 Mevcut masa siparişleri alındı:', orders);
+                    
+                    // Orders bir obje, array değil
+                    if (orders && typeof orders === 'object') {
+                        tableOrders = orders;
+                    }
+                    
+                    renderTables();
+                    updateActiveOrders();
+                });
+                
+                // Ürün ve kategori verilerini al
+                socket.on('products_data', function(data) {
+                    console.log('🛍️ Ürün verileri alındı:', data);
+                    
+                    if (data.products && Array.isArray(data.products)) {
+                        products = data.products;
+                    }
+                    
+                    if (data.categories && Array.isArray(data.categories)) {
+                        categories = data.categories;
+                    }
+                    
+                    console.log('✅ Ürünler hazır:', products.length, 'ürün,', categories.length, 'kategori');
+                });
+                
+            } catch (error) {
+                console.error('❌ Socket başlatma hatası:', error);
+                updateConnectionStatus(false);
+            }
+        }
+        
+        // Bağlantı durumunu güncelle
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('syncIndicator');
+            const clientId = document.getElementById('clientId');
+            const connectionAttempts = document.getElementById('connectionAttempts');
+            
+            if (connected) {
+                indicator.style.background = '#4caf50';
+                clientId.textContent = socket?.id || 'Bağlandı';
+                connectionAttempts.textContent = '0';
+                updateLastSyncTime();
+            } else {
+                indicator.style.background = '#f44336';
+                clientId.textContent = 'Bağlantı yok';
+                connectionAttempts.textContent = '?';
+            }
+        }
+        
+        // Son senkronizasyon zamanını güncelle
+        function updateLastSyncTime() {
+            const lastSyncTime = document.getElementById('lastSyncTime');
+            lastSyncTime.textContent = new Date().toLocaleTimeString('tr-TR');
+        }
+        
+        // Masa siparişini güncelle
+        function updateTableOrder(data) {
+            console.log('🔄 Masa siparişi güncelleniyor:', data);
+            
+            if (data.tableNumber) {
+                const orderData = data.orderData || data;
+                tableOrders[data.tableNumber] = orderData;
+                
+                console.log('✅ Masa siparişi güncellendi:', tableOrders[data.tableNumber]);
+                renderTables();
+                updateActiveOrders();
+                updateLastSyncTime();
+            }
+        }
+        
+        // Masa siparişini kaldır
+        function removeTableOrder(tableNumber) {
+            delete tableOrders[tableNumber];
+            renderTables();
+            updateActiveOrders();
+            updateLastSyncTime();
+        }
+        
+        // Aktif siparişleri güncelle
+        function updateActiveOrders() {
+            const activeOrdersDiv = document.getElementById('activeOrders');
+            const activeOrderCount = document.getElementById('activeOrderCount');
+            const orderCards = document.getElementById('orderCards');
+            
+            const activeCount = Object.keys(tableOrders).length;
+            
+            if (activeCount > 0) {
+                activeOrdersDiv.style.display = 'block';
+                activeOrderCount.textContent = activeCount;
+                
+                orderCards.innerHTML = '';
+                Object.entries(tableOrders).forEach(([tableNumber, order]) => {
+                    const orderCard = document.createElement('div');
+                    orderCard.className = 'order-card';
+                    orderCard.innerHTML = `
+                        <div class="table-number">Masa ${tableNumber}</div>
+                        <div class="order-info">${order.items?.length || 0} ürün • ${(order.total || 0).toFixed(2)} TL</div>
+                    `;
+                    orderCards.appendChild(orderCard);
+                });
+            } else {
+                activeOrdersDiv.style.display = 'none';
+            }
+        }
+        
+        // Masaları render et - PC Uygulamasıyla Aynı
+        function renderTables() {
+            const grid = document.getElementById('tableGrid');
+            grid.innerHTML = '';
+            
+            console.log('🎯 Masalar render ediliyor, mevcut siparişler:', tableOrders);
+            
+            // 50 masa oluştur - PC uygulamasıyla aynı
+            for (let i = 1; i <= 50; i++) {
+                const order = tableOrders[i] || null;
+                const isOccupied = !!order;
+                
+                const tableCard = document.createElement('div');
+                tableCard.className = `table-card ${isOccupied ? 'occupied' : ''}`;
+                tableCard.onclick = () => handleTableClick(i, isOccupied);
+                
+                tableCard.innerHTML = `
+                    <div class="table-number">${i}</div>
+                    <div class="table-icon"></div>
+                    <div class="table-status">${isOccupied ? 'DOLU' : 'BOŞ'}</div>
+                    ${isOccupied ? `
+                        <div class="table-info">${order.items?.length || 0} Ürün</div>
+                        <div class="table-price">₺${(order.total || 0).toFixed(2)}</div>
+                    ` : `
+                        <div class="table-hint">Sipariş için tıklayın</div>
+                    `}
+                `;
+                
+                grid.appendChild(tableCard);
+            }
+            
+            console.log('✅ Masalar render edildi');
+        }
+        
+        // Masa tıklama işlemi
+        function handleTableClick(tableNumber, isOccupied) {
+            if (isOccupied) {
+                // Masa dolu - sipariş detayını göster
+                alert(`Masa ${tableNumber} zaten dolu!\n${tableOrders[tableNumber].items?.length || 0} ürün • ₺${(tableOrders[tableNumber].total || 0).toFixed(2)}`);
+            } else {
+                // Masa boş - yeni sipariş ekle
+                addOrderToTable(tableNumber);
+            }
+        }
+        
+        // Masaya sipariş ekle
+        function addOrderToTable(tableNumber) {
+            selectedTable = tableNumber;
+            cart = [];
+            
+            // Modal başlığını güncelle
+            document.getElementById('selectedTableText').textContent = `Masa ${tableNumber}`;
+            
+            // Ürün ve kategorileri yükle
+            renderCategories();
+            renderProducts();
+            updateCartDisplay();
+            
+            // Modal'ı göster
+            document.getElementById('productModal').style.display = 'block';
+        }
+        
+        // Kategori butonlarını render et
+        function renderCategories() {
+            const categoryButtonsDiv = document.getElementById('categoryButtons');
+            categoryButtonsDiv.innerHTML = '';
+            
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'category-btn';
+                button.textContent = `${category.icon || '📁'} ${category.name}`;
+                button.onclick = () => filterByCategory(category.id);
+                categoryButtonsDiv.appendChild(button);
+            });
+        }
+        
+        // Ürünleri render et
+        function renderProducts() {
+            const productsGrid = document.getElementById('productsGrid');
+            productsGrid.innerHTML = '';
+            
+            const productsToShow = filteredProducts.length > 0 ? filteredProducts : products;
+            
+            productsToShow.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.innerHTML = `
+                    <div class="product-name">${product.name}</div>
+                    <div class="product-price">${parseFloat(product.price).toFixed(2)} TL</div>
+                    <div class="product-category">${getCategoryName(product.category)}</div>
+                    <button class="add-to-cart-btn" onclick="addToCart('${product.id}')">Sepete Ekle</button>
+                `;
+                productsGrid.appendChild(productCard);
+            });
+        }
+        
+        // Kategori adını bul
+        function getCategoryName(categoryId) {
+            const category = categories.find(cat => cat.id === categoryId);
+            return category ? `${category.icon || '📁'} ${category.name}` : categoryId;
+        }
+        
+        // Kategoriye göre filtrele
+        function filterByCategory(categoryId) {
+            // Aktif kategori butonunu güncelle
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            if (categoryId === 'all') {
+                filteredProducts = [];
+            } else {
+                filteredProducts = products.filter(product => product.category === categoryId);
+            }
+            
+            renderProducts();
+        }
+        
+        // Sepete ürün ekle
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
+            const existingItem = cart.find(item => item.id === productId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+                existingItem.total_price = existingItem.quantity * existingItem.price;
+            } else {
+                cart.push({
+                    id: product.id,
+                    name: product.name,
+                    price: parseFloat(product.price),
+                    quantity: 1,
+                    total_price: parseFloat(product.price),
+                    category: product.category
+                });
+            }
+            
+            updateCartDisplay();
+        }
+        
+        // Sepet görünümünü güncelle
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cartItems');
+            const cartCount = document.getElementById('cartCount');
+            const cartTotal = document.getElementById('cartTotal');
+            
+            cartItems.innerHTML = '';
+            let totalPrice = 0;
+            let totalItems = 0;
+            
+            cart.forEach((item, index) => {
+                totalPrice += item.total_price;
+                totalItems += item.quantity;
+                
+                const cartItem = document.createElement('div');
+                cartItem.className = 'cart-item';
+                cartItem.innerHTML = `
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${item.name}</div>
+                        <div class="cart-item-price">${item.price.toFixed(2)} TL</div>
+                    </div>
+                    <div class="cart-item-controls">
+                        <button class="quantity-btn" onclick="changeQuantity(${index}, -1)">-</button>
+                        <span class="quantity-display">${item.quantity}</span>
+                        <button class="quantity-btn" onclick="changeQuantity(${index}, 1)">+</button>
+                    </div>
+                `;
+                cartItems.appendChild(cartItem);
+            });
+            
+            cartCount.textContent = totalItems;
+            cartTotal.textContent = totalPrice.toFixed(2);
+            
+            // Kaydet butonunu aktif/deaktif et
+            const saveBtn = document.querySelector('.save-order-btn');
+            saveBtn.disabled = cart.length === 0;
+        }
+        
+        // Ürün miktarını değiştir
+        function changeQuantity(index, change) {
+            const item = cart[index];
+            item.quantity += change;
+            
+            if (item.quantity <= 0) {
+                cart.splice(index, 1);
+            } else {
+                item.total_price = item.quantity * item.price;
+            }
+            
+            updateCartDisplay();
+        }
+        
+        // Siparişi kaydet
+        function saveOrder() {
+            if (cart.length === 0) {
+                alert('❌ Sepet boş! Lütfen ürün ekleyin.');
+                return;
+            }
+            
+            const totalPrice = cart.reduce((sum, item) => sum + item.total_price, 0);
+            
+            const orderData = {
+                tableNumber: selectedTable,
+                items: cart.map(item => ({
+                    id: item.id,
+                    product_name: item.name,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    total_price: item.total_price,
+                    category: item.category
+                })),
+                total: totalPrice
+            };
+            
+            if (socket && isConnected) {
+                console.log('📤 Masa siparişi gönderiliyor:', orderData);
+                
+                socket.emit('add_to_table', orderData);
+                
+                // Başarı mesajı
+                alert(`✅ Masa ${selectedTable} için sipariş başarıyla kaydedildi!\n\n${cart.length} ürün\nToplam: ${totalPrice.toFixed(2)} TL`);
+                
+                // Modal'ı kapat
+                closeProductModal();
+            } else {
+                alert('❌ Sunucu bağlantısı yok! Lütfen tekrar deneyin.');
+            }
+        }
+        
+        // Modal'ı kapat
+        function closeProductModal() {
+            document.getElementById('productModal').style.display = 'none';
+            selectedTable = null;
+            cart = [];
+            filteredProducts = [];
+        }
+        
+        // Sayfa kapatılırken socket'i temizle
+        window.addEventListener('beforeunload', function() {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>

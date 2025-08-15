@@ -40,11 +40,12 @@ class DatabaseService {
         fileMustExist: false
       });
 
-      // WAL modunu etkinleştir (daha iyi performans ve güvenlik)
-      this.db.pragma('journal_mode = WAL');
+      // WAL modu yerine DELETE modunu kullan (Windows uyumluluğu için)
+      this.db.pragma('journal_mode = DELETE');
       this.db.pragma('synchronous = NORMAL');
       this.db.pragma('cache_size = 10000');
       this.db.pragma('temp_store = MEMORY');
+      this.db.pragma('foreign_keys = ON');
 
       // Tabloları oluştur
       this.initializeTables();
@@ -196,7 +197,34 @@ class DatabaseService {
   private ensureConnection(): void {
     if (!this.db || !this.isInitialized) {
       console.log('🔄 Veritabanı bağlantısı yeniden başlatılıyor...');
-      this.initializeDatabase();
+      try {
+        // Eğer mevcut bağlantı varsa kapat
+        if (this.db) {
+          try {
+            this.db.close();
+          } catch (closeError) {
+            console.warn('⚠️ Mevcut veritabanı bağlantısı kapatılırken hata:', closeError);
+          }
+        }
+        
+        // Yeni bağlantı oluştur
+        this.initializeDatabase();
+      } catch (error) {
+        console.error('❌ Veritabanı bağlantısı yeniden başlatılamadı:', error);
+        throw error;
+      }
+    }
+    
+    // Bağlantı durumunu test et
+    if (this.db) {
+      try {
+        this.db.prepare('SELECT 1').get();
+      } catch (testError) {
+        console.warn('⚠️ Veritabanı bağlantısı test edilemedi, yeniden başlatılıyor...');
+        this.db = null;
+        this.isInitialized = false;
+        this.initializeDatabase();
+      }
     }
   }
 
@@ -466,48 +494,63 @@ class DatabaseService {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('✅ Tablo kontrol edildi/oluşturuldu, INSERT + RETURNING deneniyor...');
-      try {
-        const returning = this.db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?) RETURNING id, name, phone, created_at as createdAt').get(name, phone) as any;
-        if (returning) {
-          console.log('📋 INSERT RETURNING satırı:', returning);
-          return returning;
-        }
-      } catch (retErr) {
-        console.warn('⚠️ RETURNING desteklenmiyor, klasik INSERT yöntemine düşülüyor:', retErr);
-        const stmt = this.db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
+      console.log('✅ Tablo kontrol edildi/oluşturuldu, INSERT işlemi başlıyor...');
+      
+      // Transaction içinde işlem yap
+      const transaction = this.db.transaction(() => {
+        const stmt = this.db!.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
         const result = stmt.run(name, phone ?? null);
         console.log('📋 INSERT sonucu:', result);
-        // Önce run() dönen id'yi dene, sonra last_insert_rowid()
-        let insertedId: number | null = null;
-        const rid = (result as any).lastInsertRowid;
-        if (typeof rid === 'bigint') {
-          insertedId = Number(rid);
-        } else if (typeof rid === 'number') {
-          insertedId = rid || null;
-        }
-        if (!insertedId) {
-          try {
-            const idRow = this.db.prepare('SELECT last_insert_rowid() as id').get() as any;
-            insertedId = Number(idRow?.id) || null;
-          } catch {}
-        }
+        
         if (result.changes > 0) {
-          if (insertedId) {
-            const byId = this.db.prepare('SELECT id, name, phone, created_at as createdAt FROM customers WHERE id = ?').get(insertedId) as any;
-            if (byId) return byId;
+          // Eklenen satırın ID'sini al
+          let insertedId: number | null = null;
+          const rid = (result as any).lastInsertRowid;
+          
+          if (typeof rid === 'bigint') {
+            insertedId = Number(rid);
+          } else if (typeof rid === 'number') {
+            insertedId = rid || null;
           }
+          
+          if (!insertedId) {
+            // last_insert_rowid() ile ID'yi al
+            try {
+              const idRow = this.db!.prepare('SELECT last_insert_rowid() as id').get() as any;
+              insertedId = Number(idRow?.id) || null;
+            } catch (idError) {
+              console.warn('⚠️ last_insert_rowid() alınamadı:', idError);
+            }
+          }
+          
+          if (insertedId) {
+            // Eklenen satırı oku ve döndür
+            const byId = this.db!.prepare('SELECT id, name, phone, created_at as createdAt FROM customers WHERE id = ?').get(insertedId) as any;
+            if (byId) {
+              console.log('✅ Müşteri başarıyla eklendi:', byId);
+              return byId;
+            }
+          }
+          
           // Fallback: son satırı oku
-          const rowStmt = this.db.prepare('SELECT id, name, phone, created_at as createdAt FROM customers ORDER BY id DESC LIMIT 1');
+          const rowStmt = this.db!.prepare('SELECT id, name, phone, created_at as createdAt FROM customers ORDER BY id DESC LIMIT 1');
           const row = rowStmt.get() as any;
-          if (row) return row;
-          // Hiçbir şekilde satır okunamadıysa null dön
-          return null;
+          if (row) {
+            console.log('✅ Müşteri fallback ile alındı:', row);
+            return row;
+          }
         }
-      }
-      return null;
+        
+        throw new Error('Müşteri eklenemedi');
+      });
+      
+      const result = transaction();
+      console.log('✅ Transaction başarılı, sonuç:', result);
+      return result;
+      
     } catch (error) {
       console.error('❌ Müşteri ekleme hatası:', error);
+      
       // Otomatik iyileştirme: tablo yoksa oluştur ve tekrar dene
       const message = (error as any)?.message || '';
       if (message.includes('no such table') && message.includes('customers')) {
@@ -522,37 +565,43 @@ class DatabaseService {
             )
           `);
           console.log('✅ Tablo oluşturuldu, tekrar INSERT deneniyor...');
-          const retry = this.db!.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
-          const result = retry.run(name, phone ?? null);
-          console.log('📋 Retry INSERT sonucu:', result);
-          if (result.changes > 0) {
+          
+          // Tekrar dene
+          const retryStmt = this.db!.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)');
+          const retryResult = retryStmt.run(name, phone ?? null);
+          console.log('📋 Retry INSERT sonucu:', retryResult);
+          
+          if (retryResult.changes > 0) {
             let insertedId: number | null = null;
-            const rid = (result as any).lastInsertRowid;
+            const rid = (retryResult as any).lastInsertRowid;
+            
             if (typeof rid === 'bigint') {
               insertedId = Number(rid);
             } else if (typeof rid === 'number') {
               insertedId = rid || null;
             }
+            
             if (!insertedId) {
               try {
                 const idRow = this.db!.prepare('SELECT last_insert_rowid() as id').get() as any;
                 insertedId = Number(idRow?.id) || null;
               } catch {}
             }
+            
             if (insertedId) {
               const byId = this.db!.prepare('SELECT id, name, phone, created_at as createdAt FROM customers WHERE id = ?').get(insertedId) as any;
               if (byId) return byId;
             }
+            
             const rowStmt = this.db!.prepare('SELECT id, name, phone, created_at as createdAt FROM customers ORDER BY id DESC LIMIT 1');
             const row = rowStmt.get() as any;
             return row || null;
           }
-          return null;
-        } catch (e2) {
-          console.error('❌ Müşteri ekleme/otomatik tablo oluşturma hatası:', e2);
-          return null;
+        } catch (retryError) {
+          console.error('❌ Retry müşteri ekleme hatası:', retryError);
         }
       }
+      
       return null;
     }
   }
@@ -780,13 +829,18 @@ class DatabaseService {
 
   // Veritabanı bağlantısını kapat
   close(): void {
-    this.ensureConnection();
     if (this.db) {
       try {
+        console.log('🔄 Veritabanı bağlantısı kapatılıyor...');
         this.db.close();
-        console.log('Veritabanı bağlantısı kapatıldı.');
+        this.db = null;
+        this.isInitialized = false;
+        console.log('✅ Veritabanı bağlantısı başarıyla kapatıldı');
       } catch (error) {
-        console.error('Veritabanı kapatma hatası:', error);
+        console.error('❌ Veritabanı kapatma hatası:', error);
+        // Hata olsa bile referansları temizle
+        this.db = null;
+        this.isInitialized = false;
       }
     }
   }
@@ -888,6 +942,31 @@ class DatabaseService {
           return false;
         }
       }
+
+      // Tabloların varlığını garantiye al
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS table_orders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_number INTEGER NOT NULL,
+          total_amount REAL NOT NULL,
+          start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+          is_active INTEGER DEFAULT 1
+        )
+      `);
+
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS table_order_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_order_id INTEGER NOT NULL,
+          product_id TEXT NOT NULL,
+          product_name TEXT NOT NULL,
+          quantity INTEGER NOT NULL,
+          unit_price REAL NOT NULL,
+          total_price REAL NOT NULL,
+          category TEXT NOT NULL,
+          FOREIGN KEY (table_order_id) REFERENCES table_orders(id)
+        )
+      `);
 
       // Önce mevcut aktif sipariş var mı kontrol et
       const existingOrderStmt = this.db!.prepare(`
@@ -1495,8 +1574,16 @@ export const getDatabase = (): DatabaseService => {
 
 export const closeDatabase = (): void => {
   if (databaseInstance) {
-    databaseInstance.close();
-    databaseInstance = null;
+    try {
+      console.log('🔄 Veritabanı bağlantısı kapatılıyor...');
+      databaseInstance.close();
+      console.log('✅ Veritabanı bağlantısı başarıyla kapatıldı');
+    } catch (error) {
+      console.error('❌ Veritabanı kapatma hatası:', error);
+    } finally {
+      databaseInstance = null;
+      console.log('🧹 Veritabanı instance temizlendi');
+    }
   }
 };
 

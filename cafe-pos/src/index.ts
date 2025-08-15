@@ -26,11 +26,22 @@ const createWindow = (): void => {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false, // Local network için güvenlik kısıtlamalarını kaldır
     },
     // Pencere kontrolleri
     frame: true, // Başlık çubuğunu göster (F11 ile tam ekrandan çıkabilmek için)
     autoHideMenuBar: true, // Menü çubuğunu otomatik gizle
     icon: undefined, // İsteğe bağlı: İkon ekleyebilirsiniz
+  });
+
+  // CSP'yi devre dışı bırak - WebSocket için gerekli
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [''] // CSP'yi kaldır
+      }
+    });
   });
 
   // and load the index.html of the app.
