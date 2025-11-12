@@ -1,0 +1,5 @@
+provider: github
+owner: ErolEmirhan
+repo: Project-LacromisaCoffeee
+updaterCacheDirName: makara-pos-updater
+

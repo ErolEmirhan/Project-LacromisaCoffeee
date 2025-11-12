@@ -16,6 +16,9 @@ const config: ForgeConfig = {
     asar: true,
     name: 'Makara POS',
     executableName: 'makara-pos',
+    extraResource: [
+      './app-update.yml'
+    ],
   },
   rebuildConfig: {},
   makers: [
