@@ -14,9 +14,33 @@ import { rendererConfig } from './webpack.renderer.config';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    name: 'Makara POS',
+    executableName: 'makara-pos',
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  makers: [
+    new MakerSquirrel({
+      name: 'makara_pos',
+      setupExe: 'Makara POS Setup.exe',
+      setupIcon: './src/assets/Logo.png',
+    }), 
+    new MakerZIP({}, ['darwin']), 
+    new MakerRpm({}), 
+    new MakerDeb({})
+  ],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'ErolEmirhan',
+          name: 'Project-LacromisaCoffeee'
+        },
+        prerelease: false,
+        draft: false
+      }
+    }
+  ],
   plugins: [
     new AutoUnpackNativesPlugin({}),
     new WebpackPlugin({

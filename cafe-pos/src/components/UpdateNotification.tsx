@@ -111,23 +111,36 @@ const UpdateNotification: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  // Güncelleme mevcut dialog
+  // Güncelleme mevcut dialog - ZORUNLU GÜNCELLEME
   if (updateAvailable && !downloading && !updateReady) {
     return (
-      <Dialog open={true} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={true} 
+        maxWidth="sm" 
+        fullWidth
+        disableEscapeKeyDown
+        onClose={(event, reason) => {
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+            return false;
+          }
+        }}
+      >
         <DialogTitle sx={{
-          background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
+          background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
           color: 'white',
           display: 'flex',
           alignItems: 'center',
           gap: 2
         }}>
           <UpdateIcon />
-          Yeni Güncelleme Mevcut!
+          ⚠️ Zorunlu Güncelleme!
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Bu güncelleme zorunludur. Uygulamaya devam etmek için güncellemeyi indirmeniz gerekmektedir.
+          </Alert>
           <Typography variant="h6" gutterBottom>
-            Versiyon {updateInfo?.version}
+            Yeni Versiyon: {updateInfo?.version}
           </Typography>
           {updateInfo?.releaseNotes && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(217, 67, 134, 0.05)', borderRadius: 2 }}>
@@ -136,36 +149,47 @@ const UpdateNotification: React.FC = () => {
               </Typography>
             </Box>
           )}
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Güncelleme otomatik olarak indirilecek ve kurulacaktır.
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Güncelleme tamamlanana kadar uygulama kullanılamayacaktır.
           </Alert>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} color="inherit">
-            Daha Sonra
-          </Button>
+        <DialogActions sx={{ p: 2, justifyContent: 'center' }}>
           <Button
             onClick={handleDownload}
             variant="contained"
+            size="large"
             startIcon={<DownloadIcon />}
             sx={{
               background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
+              px: 4,
+              py: 1.5,
+              fontSize: '1.1rem',
               '&:hover': {
                 background: 'linear-gradient(135deg, #b8356d 0%, #d94386 100%)'
               }
             }}
           >
-            Güncellemeyi İndir
+            Güncellemeyi İndir ve Kur
           </Button>
         </DialogActions>
       </Dialog>
     );
   }
 
-  // İndirme devam ediyor
+  // İndirme devam ediyor - KAPATMA YOK
   if (downloading) {
     return (
-      <Dialog open={true} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={true} 
+        maxWidth="sm" 
+        fullWidth
+        disableEscapeKeyDown
+        onClose={(event, reason) => {
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+            return false;
+          }
+        }}
+      >
         <DialogTitle sx={{
           background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
           color: 'white'

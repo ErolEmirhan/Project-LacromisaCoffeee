@@ -1,7 +1,7 @@
 {
   "name": "makara-pos",
   "productName": "Makara POS",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Makara - Modern POS System",
   "main": ".webpack/main",
   "scripts": {
@@ -30,17 +30,16 @@
     "publish": [{
       "provider": "github",
       "owner": "ErolEmirhan",
-      "repo": "Project-LacromisaCoffeee"
+      "repo": "Project-LacromisaCoffeee",
+      "releaseType": "release"
     }],
     "win": {
-      "target": ["nsis"],
-      "icon": "src/assets/Logo.png"
+      "target": ["squirrel"],
+      "icon": "src/assets/Logo.png",
+      "publisherName": "Makara"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+    "squirrelWindows": {
+      "iconUrl": "https://raw.githubusercontent.com/ErolEmirhan/Project-LacromisaCoffeee/main/cafe-pos/src/assets/Logo.png"
     }
   },
   "devDependencies": {
