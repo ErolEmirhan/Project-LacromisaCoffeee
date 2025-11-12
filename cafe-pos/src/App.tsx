@@ -665,7 +665,7 @@ const MainApp: React.FC = () => {
               fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
               display: { xs: 'none', sm: 'block' }
             }}>
-              MAKARA
+              MAKARA ✨
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />

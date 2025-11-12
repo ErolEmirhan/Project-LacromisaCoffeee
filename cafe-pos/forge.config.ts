@@ -25,7 +25,6 @@ const config: ForgeConfig = {
     new MakerSquirrel({
       name: 'makara_pos',
       setupExe: 'Makara POS Setup.exe',
-      setupIcon: './src/assets/Logo.png',
     }), 
     new MakerZIP({}, ['darwin']), 
     new MakerRpm({}), 
