@@ -585,7 +585,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ open, onClose }) => {
                                 borderRadius: 4,
                                 bgcolor: '#f0f0f0',
                                 '& .MuiLinearProgress-bar': {
-                                  backgroundColor: sales > 0 ? '#4caf50' : '#e0e0e0'
+                                  backgroundColor: sales > 0 ? '#e91e63' : '#e0e0e0'
                                 }
                               }}
                             />

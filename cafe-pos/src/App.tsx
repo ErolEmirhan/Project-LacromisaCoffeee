@@ -70,7 +70,6 @@ import {
   SwapHoriz as SwapHorizIcon
 } from '@mui/icons-material';
 import { getDatabaseIPC } from './services/database-ipc';
-import { getRealtimeSync } from './services/realtime-sync';
 import { checkNetworkStatus } from './utils/networkUtils';
 import LoginScreen from './components/LoginScreen';
 import SplashScreen from './components/SplashScreen';
@@ -81,24 +80,23 @@ import AdminPanel from './components/AdminPanel';
 import AdminDashboard from './components/AdminDashboard';
 import VirtualKeyboard from './components/VirtualKeyboard';
 import QRCodeDialog from './components/QRCodeDialog';
+import UpdateNotification from './components/UpdateNotification';
 import soundEffects from './services/soundEffects';
-import StockManagement from './components/StockManagement';
-import stockService from './services/stockService';
 
-// Modern yeşil tema - #0a4940
+// Modern pembe/magenta tema - #d94386
 const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#0a4940',
-      light: '#2e6b63',
-      dark: '#053429',
+      main: '#d94386',
+      light: '#e36ba3',
+      dark: '#b8356d',
     },
     secondary: {
-      main: '#4caf50',
+      main: '#e91e63',
     },
     background: {
-      default: '#f8fffe',
+      default: '#fffafd',
       paper: '#ffffff',
     },
     text: {
@@ -106,7 +104,7 @@ const theme = createTheme({
       secondary: '#666666',
     },
     success: {
-      main: '#0a4940',
+      main: '#d94386',
     },
   },
   typography: {
@@ -136,7 +134,7 @@ const theme = createTheme({
           fontWeight: 600,
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0 4px 12px rgba(10, 73, 64, 0.3)',
+            boxShadow: '0 4px 12px rgba(217, 67, 134, 0.3)',
           },
         },
       },
@@ -174,7 +172,7 @@ const HamburgerIcon: React.FC<{ active?: boolean }> = ({ active = false }) => {
     width: 24,
     height: 3,
     borderRadius: 2,
-    background: 'linear-gradient(90deg, #0a4940 0%, #2e6b63 100%)',
+    background: 'linear-gradient(90deg, #d94386 0%, #e36ba3 100%)',
     boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
     transition: 'transform 220ms ease, opacity 220ms ease, width 220ms ease',
   } as const;
@@ -250,7 +248,6 @@ const MainApp: React.FC = () => {
   const [deleteAllCountdown, setDeleteAllCountdown] = React.useState(3);
   const [deleteAllEnabled, setDeleteAllEnabled] = React.useState(false);
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = React.useState<any>(null);
-  const [showStockManagement, setShowStockManagement] = React.useState(false);
   const [customerOrders, setCustomerOrders] = React.useState<any[]>([]);
   const [customerTotalDebt, setCustomerTotalDebt] = React.useState(0);
   
@@ -258,14 +255,6 @@ const MainApp: React.FC = () => {
   const [showTableTransferDialog, setShowTableTransferDialog] = React.useState(false);
   const [sourceTable, setSourceTable] = React.useState<number | null>(null);
   const [targetTable, setTargetTable] = React.useState<number | null>(null);
-  
-  // Gerçek zamanlı senkronizasyon state'leri
-  const [realtimeSyncStatus, setRealtimeSyncStatus] = React.useState<{
-    connected: boolean;
-    id?: string;
-    attempts: number;
-  }>({ connected: false, attempts: 0 });
-  const [lastSyncTime, setLastSyncTime] = React.useState<Date | null>(null);
   
   // QR kod dialog state'leri
   const [showQRCodeDialog, setShowQRCodeDialog] = React.useState(false);
@@ -276,64 +265,6 @@ const MainApp: React.FC = () => {
     loadData();
     loadTableOrders();
   }, [loadData]);
-
-  // Gerçek zamanlı senkronizasyon servisini başlat
-  React.useEffect(() => {
-    const realtimeSync = getRealtimeSync();
-    
-    // Bağlantı durumu güncellemesi
-    const updateStatus = () => {
-      const status = realtimeSync.getConnectionStatus();
-      setRealtimeSyncStatus(status);
-    };
-
-    // Periyodik olarak durumu güncelle
-    const statusInterval = setInterval(updateStatus, 2000);
-    
-    // Event dinleyicileri
-    realtimeSync.on('table_order_updated', (data: any) => {
-      console.log('📊 Gerçek zamanlı masa güncellemesi alındı:', data);
-      setLastSyncTime(new Date());
-      
-      // Masa siparişlerini yeniden yükle
-      loadTableOrders();
-    });
-
-    realtimeSync.on('table_order_created', (data: any) => {
-      console.log('🆕 Gerçek zamanlı yeni masa siparişi alındı:', data);
-      setLastSyncTime(new Date());
-      
-      // Masa siparişlerini yeniden yükle
-      loadTableOrders();
-    });
-
-    realtimeSync.on('table_order_closed', (data: any) => {
-      console.log('🔒 Gerçek zamanlı masa kapatma alındı:', data);
-      setLastSyncTime(new Date());
-      
-      // Masa siparişlerini yeniden yükle
-      loadTableOrders();
-    });
-
-    realtimeSync.on('table_transferred', (data: any) => {
-      console.log('🔄 Gerçek zamanlı masa aktarımı alındı:', data);
-      setLastSyncTime(new Date());
-      
-      // Masa siparişlerini yeniden yükle
-      loadTableOrders();
-    });
-
-    // İlk durum güncellemesi
-    updateStatus();
-
-    return () => {
-      clearInterval(statusInterval);
-      realtimeSync.off('table_order_updated', () => {});
-      realtimeSync.off('table_order_created', () => {});
-      realtimeSync.off('table_order_closed', () => {});
-      realtimeSync.off('table_transferred', () => {});
-    };
-  }, []);
 
   // PC IP adresini al
   React.useEffect(() => {
@@ -467,14 +398,10 @@ const MainApp: React.FC = () => {
 
       // Veritabanında masa aktarımını yap
       const db = getDatabaseIPC();
-      const realtimeSync = getRealtimeSync();
       
       const success = await db.transferTableOrder(sourceTable, targetTable);
       
       if (success) {
-        // Gerçek zamanlı senkronizasyon ile masa aktarımı gönder
-        realtimeSync.emitTableTransfer(sourceTable, targetTable);
-        
         // Local state'i güncelle
         const newTableOrders = { ...tableOrders };
         newTableOrders[targetTable] = sourceOrder;
@@ -681,18 +608,9 @@ const MainApp: React.FC = () => {
     if (product?.sizes && product.sizes.length > 0) {
       openSizeSelection(product);
     } else {
-      // Stok kontrolü yap
-      if (stockService.checkStockAvailability(product.id, 1)) {
-        // Stoktan düş
-        stockService.decreaseStock(product.id, 1);
-        addToCart(product);
-        soundEffects.playAddToCart(); // Ürün sepete eklendiğinde başarı sesi
-        showToast(`${product.name} sepete eklendi`, 'success');
-      } else {
-        // Yetersiz stok
-        soundEffects.playError(); // Hata sesi
-        showToast(`${product.name} için yetersiz stok!`, 'error');
-      }
+      addToCart(product);
+      soundEffects.playAddToCart(); // Ürün sepete eklendiğinde başarı sesi
+      showToast(`${product.name} sepete eklendi`, 'success');
     }
   };
 
@@ -732,13 +650,13 @@ const MainApp: React.FC = () => {
               className="mobile-logo"
               component="img"
               src={require('./assets/Logo.png')}
-              alt="Lacromisa Coffee Logo"
+              alt="Makara Logo"
               sx={{
                 width: { xs: 36, sm: 42, md: 48 },
                 height: { xs: 36, sm: 42, md: 48 },
                 borderRadius: '50%',
                 mr: { xs: 1, sm: 1.5, md: 2 },
-                boxShadow: '0 2px 8px rgba(10, 73, 64, 0.2)',
+                boxShadow: '0 2px 8px rgba(217, 67, 134, 0.2)',
                 border: '2px solid rgba(255, 255, 255, 0.8)'
               }}
             />
@@ -747,7 +665,7 @@ const MainApp: React.FC = () => {
               fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
               display: { xs: 'none', sm: 'block' }
             }}>
-              Lacromisa Coffee
+              Makara
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
@@ -769,9 +687,9 @@ const MainApp: React.FC = () => {
               variant="outlined"
               sx={{
                 background: (!showTables && !showCustomers) 
-                  ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+                  ? 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)'
                   : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 255, 254, 0.9) 100%)',
-                color: (!showTables && !showCustomers) ? 'white' : '#0a4940',
+                color: (!showTables && !showCustomers) ? 'white' : '#d94386',
                 fontWeight: 800,
                 px: { xs: 3, sm: 5 },
                 py: { xs: 1.5, sm: 2 },
@@ -781,7 +699,7 @@ const MainApp: React.FC = () => {
                 minWidth: { xs: '120px', sm: '140px' },
                 border: 'none',
                 boxShadow: (!showTables && !showCustomers) 
-                  ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 15px rgba(10, 73, 64, 0.2)'
+                  ? '0 8px 25px rgba(217, 67, 134, 0.4), 0 4px 15px rgba(217, 67, 134, 0.2)'
                   : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04)',
                 transform: (!showTables && !showCustomers) ? 'scale(1.08) translateY(-2px)' : 'scale(1)',
                 position: 'relative',
@@ -799,10 +717,10 @@ const MainApp: React.FC = () => {
                   transition: 'opacity 0.3s ease'
                 },
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #053429 0%, #0a4940 100%)',
+                  background: 'linear-gradient(135deg, #053429 0%, #d94386 100%)',
                   color: 'white',
                   transform: 'translateY(-3px) scale(1.05)',
-                  boxShadow: '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 20px rgba(10, 73, 64, 0.3)',
+                  boxShadow: '0 12px 35px rgba(217, 67, 134, 0.5), 0 6px 20px rgba(217, 67, 134, 0.3)',
                   '&::before': {
                     opacity: 1
                   }
@@ -820,9 +738,9 @@ const MainApp: React.FC = () => {
               variant="outlined"
               sx={{
                 background: showTables 
-                  ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+                  ? 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)'
                   : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 255, 254, 0.9) 100%)',
-                color: showTables ? 'white' : '#0a4940',
+                color: showTables ? 'white' : '#d94386',
                 fontWeight: 800,
                 px: { xs: 3, sm: 5 },
                 py: { xs: 1.5, sm: 2 },
@@ -832,7 +750,7 @@ const MainApp: React.FC = () => {
                 minWidth: { xs: '120px', sm: '140px' },
                 border: 'none',
                 boxShadow: showTables 
-                  ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 15px rgba(10, 73, 64, 0.2)'
+                  ? '0 8px 25px rgba(217, 67, 134, 0.4), 0 4px 15px rgba(217, 67, 134, 0.2)'
                   : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04)',
                 transform: showTables ? 'scale(1.08) translateY(-2px)' : 'scale(1)',
                 position: 'relative',
@@ -850,10 +768,10 @@ const MainApp: React.FC = () => {
                   transition: 'opacity 0.3s ease'
                 },
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #053429 0%, #0a4940 100%)',
+                  background: 'linear-gradient(135deg, #053429 0%, #d94386 100%)',
                   color: 'white',
                   transform: 'translateY(-3px) scale(1.05)',
-                  boxShadow: '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 20px rgba(10, 73, 64, 0.3)',
+                  boxShadow: '0 12px 35px rgba(217, 67, 134, 0.5), 0 6px 20px rgba(217, 67, 134, 0.3)',
                   '&::before': {
                     opacity: 1
                   }
@@ -871,9 +789,9 @@ const MainApp: React.FC = () => {
               variant="outlined"
               sx={{
                 background: showCustomers 
-                  ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+                  ? 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)'
                   : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 255, 254, 0.9) 100%)',
-                color: showCustomers ? 'white' : '#0a4940',
+                color: showCustomers ? 'white' : '#d94386',
                 fontWeight: 800,
                 px: { xs: 3, sm: 5 },
                 py: { xs: 1.5, sm: 2 },
@@ -883,7 +801,7 @@ const MainApp: React.FC = () => {
                 minWidth: { xs: '120px', sm: '140px' },
                 border: 'none',
                 boxShadow: showCustomers 
-                  ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 15px rgba(10, 73, 64, 0.2)'
+                  ? '0 8px 25px rgba(217, 67, 134, 0.4), 0 4px 15px rgba(217, 67, 134, 0.2)'
                   : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04)',
                 transform: showCustomers ? 'scale(1.08) translateY(-2px)' : 'scale(1)',
                 position: 'relative',
@@ -901,10 +819,10 @@ const MainApp: React.FC = () => {
                   transition: 'opacity 0.3s ease'
                 },
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #053429 0%, #0a4940 100%)',
+                  background: 'linear-gradient(135deg, #053429 0%, #d94386 100%)',
                   color: 'white',
                   transform: 'translateY(-3px) scale(1.05)',
-                  boxShadow: '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 20px rgba(10, 73, 64, 0.3)',
+                  boxShadow: '0 12px 35px rgba(217, 67, 134, 0.5), 0 6px 20px rgba(217, 67, 134, 0.3)',
                   '&::before': {
                     opacity: 1
                   }
@@ -915,56 +833,6 @@ const MainApp: React.FC = () => {
               👥 Müşteriler
             </Button>
           </Box>
-          
-          {/* Gerçek zamanlı senkronizasyon durumu - Tıklanabilir QR kod butonu */}
-          <Tooltip title="Telefon bağlantısı için QR kod göster">
-            <Box 
-              onClick={() => setShowQRCodeDialog(true)}
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                px: 2,
-                py: 1,
-                borderRadius: 2,
-                bgcolor: realtimeSyncStatus.connected ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                border: 1,
-                borderColor: realtimeSyncStatus.connected ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)',
-                mr: 1,
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  bgcolor: realtimeSyncStatus.connected ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
-                  transform: 'scale(1.05)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                },
-                '&:active': {
-                  transform: 'scale(0.95)'
-                }
-              }}
-            >
-              <Box sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: realtimeSyncStatus.connected ? '#4caf50' : '#f44336',
-                animation: realtimeSyncStatus.connected ? 'pulse 2s infinite' : 'none',
-                '@keyframes pulse': {
-                  '0%': { opacity: 1 },
-                  '50%': { opacity: 0.5 },
-                  '100%': { opacity: 1 }
-                }
-              }} />
-              <Typography variant="caption" sx={{ 
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                color: realtimeSyncStatus.connected ? '#4caf50' : '#f44336',
-                display: { xs: 'none', sm: 'block' }
-              }}>
-                {realtimeSyncStatus.connected ? 'SYNC' : 'OFF'}
-              </Typography>
-            </Box>
-          </Tooltip>
 
           {/* Sağ üst hamburger menü - Mobil Uyumlu */}
           <Tooltip title="Menü">
@@ -973,14 +841,14 @@ const MainApp: React.FC = () => {
               onClick={openHeaderDrawer}
               sx={{
                 ml: { xs: 1, sm: 1.5, md: 2 },
-                bgcolor: 'rgba(10, 73, 64, 0.1)',
-                color: '#0a4940',
+                bgcolor: 'rgba(217, 67, 134, 0.1)',
+                color: '#d94386',
                 border: { xs: '1px solid', sm: '2px solid' },
-                borderColor: '#0a4940',
+                borderColor: '#d94386',
                 width: { xs: 64, sm: 70, md: 76 },
                 height: { xs: 64, sm: 70, md: 76 },
                 '&:hover': {
-                  bgcolor: '#0a4940',
+                  bgcolor: '#d94386',
                   color: 'white',
                   transform: 'scale(1.05)',
                 },
@@ -1040,16 +908,6 @@ const MainApp: React.FC = () => {
                   <ListItemText 
                     primary="Ayarlar" 
                     secondary="Sistem konfigürasyonu"
-                  />
-                </MenuItem>
-
-                <MenuItem onClick={() => { setShowStockManagement(true); closeHeaderDrawer(); }} sx={{ py: 1.5, borderRadius: 2, mb: 1 }}>
-                  <ListItemIcon>
-                    <InventoryIcon />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary="Stok Takibi" 
-                    secondary="Ürün stok durumları ve yönetimi"
                   />
                 </MenuItem>
 
@@ -1271,51 +1129,9 @@ const MainApp: React.FC = () => {
               py: { xs: 2, sm: 3 }, 
               borderBottom: 1, 
               borderColor: 'divider',
-              background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)',
+              background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
               color: 'white'
             }}>
-              
-              {/* Gerçek zamanlı senkronizasyon bilgisi */}
-              <Box sx={{ 
-                mb: 2,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: 'rgba(255, 255, 255, 0.1)',
-                border: 1,
-                borderColor: 'rgba(255, 255, 255, 0.2)'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.9 }}>
-                    🔄 Gerçek Zamanlı Senkronizasyon
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: realtimeSyncStatus.connected ? '#4caf50' : '#f44336',
-                      animation: realtimeSyncStatus.connected ? 'pulse 2s infinite' : 'none'
-                    }} />
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      {realtimeSyncStatus.connected ? 'Bağlı' : 'Bağlantı yok'}
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.8rem', opacity: 0.8 }}>
-                  <Typography variant="caption">
-                    📱 Client ID: {realtimeSyncStatus.id || 'N/A'}
-                  </Typography>
-                  <Typography variant="caption">
-                    🔗 Bağlantı: {realtimeSyncStatus.attempts} deneme
-                  </Typography>
-                  {lastSyncTime && (
-                    <Typography variant="caption">
-                      ⏰ Son güncelleme: {lastSyncTime.toLocaleTimeString('tr-TR')}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
               
               {/* Aktif Masa Siparişleri */}
               {Object.keys(tableOrders).length > 0 && (
@@ -1418,7 +1234,7 @@ const MainApp: React.FC = () => {
                 borderRadius: '6px',
               },
               '&::-webkit-scrollbar-thumb': {
-                background: '#0a4940',
+                background: '#d94386',
                 borderRadius: '6px',
                 '&:hover': {
                   background: '#053429',
@@ -1457,15 +1273,15 @@ const MainApp: React.FC = () => {
                         background: isOccupied 
                           ? 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)'
                           : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                        color: isOccupied ? 'white' : '#0a4940',
+                        color: isOccupied ? 'white' : '#d94386',
                         border: { xs: '2px solid', sm: '3px solid' },
                         borderColor: isOccupied ? '#ff4757' : '#e9ecef',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                         '&:hover': {
                           transform: { xs: 'translateY(-2px) scale(1.02)', sm: 'translateY(-6px) scale(1.03)' },
-                          boxShadow: '0 12px 30px rgba(10, 73, 64, 0.15)',
+                          boxShadow: '0 12px 30px rgba(217, 67, 134, 0.15)',
                           border: { xs: '2px solid', sm: '3px solid' },
-                          borderColor: isOccupied ? '#ff3742' : '#0a4940',
+                          borderColor: isOccupied ? '#ff3742' : '#d94386',
                           background: isOccupied 
                             ? 'linear-gradient(135deg, #ff5252 0%, #d32f2f 100%)'
                             : 'linear-gradient(135deg, #ffffff 0%, #f0f8f6 100%)',
@@ -1485,10 +1301,10 @@ const MainApp: React.FC = () => {
                         <Typography className="mobile-table-number" variant="h3" sx={{ 
                           fontWeight: 800,
                           fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },
-                          color: isOccupied ? 'white' : '#0a4940',
+                          color: isOccupied ? 'white' : '#d94386',
                           textShadow: isOccupied 
                             ? '0 2px 4px rgba(0,0,0,0.3)'
-                            : '0 2px 4px rgba(10, 73, 64, 0.1)'
+                            : '0 2px 4px rgba(217, 67, 134, 0.1)'
                         }}>
                           {tableNumber}
                         </Typography>
@@ -1512,7 +1328,7 @@ const MainApp: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 700,
                             fontSize: { xs: '0.9rem', sm: '1rem' },
-                            color: isOccupied ? 'white' : '#0a4940',
+                            color: isOccupied ? 'white' : '#d94386',
                             opacity: 0.9
                           }}>
                             {isOccupied ? 'DOLU' : 'BOŞ'}
@@ -1746,7 +1562,7 @@ const MainApp: React.FC = () => {
               pt: 3,
               pb: 2,
               flexShrink: 0,
-              background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)'
+              background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)'
             }}>
               <Tabs 
                 value={selectedCategory} 
@@ -1754,34 +1570,89 @@ const MainApp: React.FC = () => {
                 variant="scrollable"
                 scrollButtons="auto"
                 sx={{ 
-                  minHeight: 60,
+                  minHeight: 68,
                   '& .MuiTab-root': {
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    minHeight: 48,
-                    borderRadius: 3,
-                    margin: '6px 4px',
-                    padding: '8px 16px',
+                    color: 'rgba(255, 255, 255, 0.75)',
+                    minHeight: 56,
+                    borderRadius: '16px',
+                    margin: '6px 6px',
+                    padding: '12px 24px',
                     minWidth: 'auto',
-                    transition: 'all 0.3s ease',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    position: 'relative',
+                    transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                    backdropFilter: 'blur(10px)',
+                    border: '2px solid transparent',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      borderRadius: '16px',
+                      padding: '2px',
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
+                      WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                      WebkitMaskComposite: 'xor',
+                      maskComposite: 'exclude',
+                      opacity: 0,
+                      transition: 'opacity 0.3s ease'
+                    },
                     '&.Mui-selected': {
-                      color: '#0a4940',
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      transform: 'translateY(-1px)',
-                      fontWeight: 700
+                      color: '#d94386',
+                      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                      boxShadow: '0 8px 24px rgba(217, 67, 134, 0.25), 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.8)',
+                      transform: 'translateY(-2px) scale(1.02)',
+                      fontWeight: 700,
+                      border: '2px solid rgba(217, 67, 134, 0.2)',
+                      '&::before': {
+                        opacity: 1,
+                        background: 'linear-gradient(135deg, rgba(217, 67, 134, 0.15), rgba(233, 30, 99, 0.1))'
+                      },
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        bottom: -2,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '60%',
+                        height: '3px',
+                        background: 'linear-gradient(90deg, transparent, #d94386, transparent)',
+                        borderRadius: '2px',
+                        boxShadow: '0 0 8px rgba(217, 67, 134, 0.5)'
+                      }
                     },
                     '&:hover': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      transform: 'translateY(-1px)'
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      transform: 'translateY(-2px)',
+                      color: 'rgba(255, 255, 255, 0.95)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      '&::before': {
+                        opacity: 0.5
+                      }
+                    },
+                    '&:active': {
+                      transform: 'translateY(0px) scale(0.98)'
                     }
                   },
                   '& .MuiTabs-indicator': {
                     display: 'none'
                   },
                   '& .MuiTabs-scrollButtons': {
-                    color: 'rgba(255, 255, 255, 0.8)',
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    width: 48,
+                    borderRadius: '12px',
+                    margin: '6px 4px',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      transform: 'scale(1.1)'
+                    },
                     '&.Mui-disabled': {
-                      opacity: 0.3
+                      opacity: 0.2
                     }
                   }
                 }}
@@ -1790,9 +1661,35 @@ const MainApp: React.FC = () => {
                   <Tab
                     key={category.id}
                     label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: '1.5rem' }}>{category.icon}</Typography>
-                        <Typography>{category.name}</Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1.5,
+                        position: 'relative',
+                        zIndex: 1
+                      }}>
+                        <Typography 
+                          sx={{ 
+                            fontSize: '1.8rem',
+                            lineHeight: 1,
+                            filter: selectedCategory === category.id 
+                              ? 'drop-shadow(0 2px 4px rgba(217, 67, 134, 0.3))'
+                              : 'none',
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          {category.icon}
+                        </Typography>
+                        <Typography 
+                          sx={{ 
+                            fontSize: '1rem',
+                            fontWeight: selectedCategory === category.id ? 700 : 600,
+                            letterSpacing: '0.02em',
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          {category.name}
+                        </Typography>
                       </Box>
                     }
                     value={category.id}
@@ -2117,25 +2014,6 @@ const MainApp: React.FC = () => {
                       }}>
                         {formatPrice(product.price)}
                       </Typography>
-                      
-                      {/* Stok Bilgisi */}
-                      <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Chip
-                          label={`Stok: ${stockService.getProductStock(product.id)} adet`}
-                          size="small"
-                          color={stockService.getProductStock(product.id) > 0 ? 'success' : 'error'}
-                          variant="outlined"
-                          sx={{ fontSize: '0.7rem', height: '20px' }}
-                        />
-                        {stockService.getProductStock(product.id) <= 10 && (
-                          <Chip
-                            label="Düşük Stok!"
-                            size="small"
-                            color="warning"
-                            sx={{ fontSize: '0.7rem', height: '20px' }}
-                          />
-                        )}
-                      </Box>
                         
                          <Button
                           fullWidth
@@ -2298,19 +2176,19 @@ const MainApp: React.FC = () => {
                     fontSize: '1.1rem',
                     fontWeight: 600,
                     background: cart.items.length > 0 
-                      ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 50%, #0a4940 100%)'
+                      ? 'linear-gradient(135deg, #d94386 0%, #e36ba3 50%, #d94386 100%)'
                       : 'linear-gradient(135deg, #ccc 0%, #ddd 50%, #ccc 100%)',
                     boxShadow: cart.items.length > 0 
-                      ? '0 8px 25px rgba(10, 73, 64, 0.4), 0 4px 10px rgba(0,0,0,0.1)'
+                      ? '0 8px 25px rgba(217, 67, 134, 0.4), 0 4px 10px rgba(0,0,0,0.1)'
                       : '0 4px 10px rgba(0,0,0,0.1)',
                     borderRadius: 3,
                     textTransform: 'none',
                     '&:hover': {
                       background: cart.items.length > 0 
-                        ? 'linear-gradient(135deg, #053429 0%, #0a4940 50%, #053429 100%)'
+                        ? 'linear-gradient(135deg, #053429 0%, #d94386 50%, #053429 100%)'
                         : 'linear-gradient(135deg, #ccc 0%, #ddd 50%, #ccc 100%)',
                       boxShadow: cart.items.length > 0 
-                        ? '0 12px 35px rgba(10, 73, 64, 0.5), 0 6px 15px rgba(0,0,0,0.15)'
+                        ? '0 12px 35px rgba(217, 67, 134, 0.5), 0 6px 15px rgba(0,0,0,0.15)'
                         : '0 4px 10px rgba(0,0,0,0.1)',
                       transform: 'translateY(-2px)'
                     },
@@ -2441,18 +2319,10 @@ const MainApp: React.FC = () => {
                     if (isAddingToTable) {
                       try {
                         const db = getDatabaseIPC();
-                        const realtimeSync = getRealtimeSync();
                         
                         const success = await db.addToTableOrder(isAddingToTable, cart.items, cart.total);
                         
                         if (success) {
-                          // Gerçek zamanlı senkronizasyon ile masa güncellemesi gönder
-                          realtimeSync.emitTableOrderUpdate(isAddingToTable, {
-                            items: [...(tableOrders[isAddingToTable]?.items || []), ...cart.items],
-                            total: (tableOrders[isAddingToTable]?.total || 0) + cart.total,
-                            startTime: tableOrders[isAddingToTable]?.startTime || new Date()
-                          });
-                          
                           // State'i güncelle
                           setTableOrders(prev => ({
                             ...prev,
@@ -3100,19 +2970,10 @@ const MainApp: React.FC = () => {
               <Button
                 onClick={() => {
                   if (sizeSelectProduct && selectedSizeId) {
-                    // Stok kontrolü yap
-                    if (stockService.checkStockAvailability(sizeSelectProduct.id, 1)) {
-                      // Stoktan düş
-                      stockService.decreaseStock(sizeSelectProduct.id, 1);
-                      addToCart(sizeSelectProduct, { sizeId: selectedSizeId });
-                      soundEffects.playAddToCart(); // Size ile ürün sepete eklendiğinde başarı sesi
-                      showToast(`${sizeSelectProduct.name} sepete eklendi`, 'success');
-                      closeSizeSelection();
-                    } else {
-                      // Yetersiz stok
-                      soundEffects.playError(); // Hata sesi
-                      showToast(`${sizeSelectProduct.name} için yetersiz stok!`, 'error');
-                    }
+                    addToCart(sizeSelectProduct, { sizeId: selectedSizeId });
+                    soundEffects.playAddToCart(); // Size ile ürün sepete eklendiğinde başarı sesi
+                    showToast(`${sizeSelectProduct.name} sepete eklendi`, 'success');
+                    closeSizeSelection();
                   }
                 }}
                 variant="contained"
@@ -3137,7 +2998,7 @@ const MainApp: React.FC = () => {
           }}
         >
           <DialogTitle sx={{ 
-            background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)',
+            background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
             color: 'white',
             textAlign: 'center',
             fontWeight: 700
@@ -3188,14 +3049,14 @@ const MainApp: React.FC = () => {
                   displayEmpty
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#0a4940',
+                      borderColor: '#d94386',
                       borderWidth: 2
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#0a4940'
+                      borderColor: '#d94386'
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#0a4940',
+                      borderColor: '#d94386',
                       borderWidth: 2
                     }
                   }}
@@ -3352,11 +3213,11 @@ const MainApp: React.FC = () => {
                 py: 1.5, 
                 borderRadius: 2,
                 background: selectedTableNumber 
-                  ? 'linear-gradient(135deg, #0a4940 30%, #2e6b63 90%)'
+                  ? 'linear-gradient(135deg, #d94386 30%, #e36ba3 90%)'
                   : 'linear-gradient(45deg, #ccc 30%, #ddd 90%)',
                 '&:hover': {
                   background: selectedTableNumber 
-                    ? 'linear-gradient(135deg, #053429 30%, #0a4940 90%)'
+                    ? 'linear-gradient(135deg, #053429 30%, #d94386 90%)'
                     : 'linear-gradient(45deg, #ccc 30%, #ddd 90%)',
                 }
               }}
@@ -3380,7 +3241,7 @@ const MainApp: React.FC = () => {
           }}
         >
           <DialogTitle sx={{ 
-            background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)',
+            background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
             color: 'white',
             textAlign: 'center',
             fontWeight: 700
@@ -3405,7 +3266,7 @@ const MainApp: React.FC = () => {
                         height: '80px',
                         mb: 2,
                         opacity: 0.6,
-                        filter: 'drop-shadow(0 2px 4px rgba(10, 73, 64, 0.2))'
+                        filter: 'drop-shadow(0 2px 4px rgba(217, 67, 134, 0.2))'
                       }}
                     />
                     <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 600 }}>
@@ -3563,9 +3424,9 @@ const MainApp: React.FC = () => {
                     px: 4, 
                     py: 1.5, 
                     borderRadius: 2,
-                    background: 'linear-gradient(135deg, #0a4940 30%, #2e6b63 100%)',
+                    background: 'linear-gradient(135deg, #d94386 30%, #e36ba3 100%)',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #053429 30%, #0a4940 100%)',
+                      background: 'linear-gradient(135deg, #053429 30%, #d94386 100%)',
                     }
                   }}
                 >
@@ -3735,7 +3596,7 @@ const MainApp: React.FC = () => {
                             width: 20, 
                             height: 20, 
                             borderRadius: '50%',
-                            bgcolor: !isOccupied ? '#4caf50' : '#e0e0e0',
+                            bgcolor: !isOccupied ? '#e91e63' : '#e0e0e0',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -3834,11 +3695,11 @@ const MainApp: React.FC = () => {
               color: 'white',
               width: 60,
               height: 60,
-              boxShadow: '0 4px 20px rgba(10, 73, 64, 0.3)',
+              boxShadow: '0 4px 20px rgba(217, 67, 134, 0.3)',
               '&:hover': {
                 bgcolor: 'primary.dark',
                 transform: 'scale(1.05)',
-                boxShadow: '0 6px 25px rgba(10, 73, 64, 0.4)',
+                boxShadow: '0 6px 25px rgba(217, 67, 134, 0.4)',
               },
               transition: 'all 0.3s ease',
               border: '3px solid white',
@@ -3859,13 +3720,6 @@ const MainApp: React.FC = () => {
           onClose={() => setShowQRCodeDialog(false)}
           pcIpAddress={pcIpAddress}
         />
-
-        {/* Stok Yönetimi Dialog'u */}
-        <StockManagement
-          open={showStockManagement}
-          onClose={() => setShowStockManagement(false)}
-        />
-
         {/* Modern toast bildirimleri */}
         <Snackbar
           open={toastOpen}
@@ -3881,7 +3735,7 @@ const MainApp: React.FC = () => {
             sx={{
               borderRadius: 2,
               boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
-              background: toastSeverity === 'success' ? 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)' : undefined,
+              background: toastSeverity === 'success' ? 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)' : undefined,
               color: 'white',
               '& .MuiAlert-icon': { color: 'white' }
             }}
@@ -3910,7 +3764,12 @@ const App: React.FC = () => {
       <CssBaseline />
       {!isAuthenticated && !showSplashScreen && <LoginScreen />}
       {!isAuthenticated && showSplashScreen && <SplashScreen />}
-      {isAuthenticated && <MainApp />}
+      {isAuthenticated && (
+        <>
+          <MainApp />
+          <UpdateNotification />
+        </>
+      )}
     </ThemeProvider>
   );
 };

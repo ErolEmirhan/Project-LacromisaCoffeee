@@ -85,7 +85,7 @@ const LoginScreen: React.FC = () => {
       height: '100vh',
       margin: 0,
       padding: 0,
-      background: 'linear-gradient(135deg, #0a4940 0%, #1a5a52 25%, #2e6b63 50%, #4caf50 100%)',
+      background: 'linear-gradient(135deg, #d94386 0%, #c9508a 25%, #e36ba3 50%, #e91e63 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -102,11 +102,11 @@ const LoginScreen: React.FC = () => {
             color: 'white',
             width: 60,
             height: 60,
-            boxShadow: '0 4px 20px rgba(10, 73, 64, 0.3)',
+            boxShadow: '0 4px 20px rgba(217, 67, 134, 0.3)',
             '&:hover': {
               bgcolor: 'primary.dark',
               transform: 'scale(1.05)',
-              boxShadow: '0 6px 25px rgba(10, 73, 64, 0.4)',
+              boxShadow: '0 6px 25px rgba(217, 67, 134, 0.4)',
             },
             transition: 'all 0.3s ease',
             border: '3px solid white'
@@ -170,12 +170,12 @@ const LoginScreen: React.FC = () => {
               height: { xs: 80, sm: 100 },
               borderRadius: '50%',
               mb: 1.5,
-              boxShadow: '0 8px 32px rgba(10, 73, 64, 0.4)',
+              boxShadow: '0 8px 32px rgba(217, 67, 134, 0.4)',
               border: '3px solid rgba(255, 255, 255, 0.9)',
               transition: 'all 0.3s ease',
               '&:hover': {
                 transform: 'scale(1.05)',
-                boxShadow: '0 12px 40px rgba(10, 73, 64, 0.5)'
+                boxShadow: '0 12px 40px rgba(217, 67, 134, 0.5)'
               }
             }}
           />
@@ -251,20 +251,20 @@ const LoginScreen: React.FC = () => {
                       fontWeight: 800,
                       borderRadius: 3,
                       background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
-                      color: '#0a4940',
-                      border: '2px solid rgba(10, 73, 64, 0.1)',
+                      color: '#d94386',
+                      border: '2px solid rgba(217, 67, 134, 0.1)',
                       boxShadow: `
-                        0 6px 20px rgba(10, 73, 64, 0.15),
+                        0 6px 20px rgba(217, 67, 134, 0.15),
                         inset 0 1px 0 rgba(255, 255, 255, 0.8)
                       `,
                       transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                       '&:hover': {
                         transform: 'translateY(-2px) scale(1.02)',
                         boxShadow: `
-                          0 10px 30px rgba(10, 73, 64, 0.25),
+                          0 10px 30px rgba(217, 67, 134, 0.25),
                           inset 0 1px 0 rgba(255, 255, 255, 0.9)
                         `,
-                        borderColor: 'rgba(10, 73, 64, 0.2)'
+                        borderColor: 'rgba(217, 67, 134, 0.2)'
                       },
                       '&:active': {
                         transform: 'translateY(0) scale(0.98)',
@@ -298,20 +298,20 @@ const LoginScreen: React.FC = () => {
                   fontWeight: 800,
                   borderRadius: 3,
                   background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
-                  color: '#0a4940',
-                  border: '2px solid rgba(10, 73, 64, 0.1)',
+                  color: '#d94386',
+                  border: '2px solid rgba(217, 67, 134, 0.1)',
                   boxShadow: `
-                    0 6px 20px rgba(10, 73, 64, 0.15),
+                    0 6px 20px rgba(217, 67, 134, 0.15),
                     inset 0 1px 0 rgba(255, 255, 255, 0.8)
                   `,
                   transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   '&:hover': {
                     transform: 'translateY(-2px) scale(1.02)',
                     boxShadow: `
-                      0 10px 30px rgba(10, 73, 64, 0.25),
+                      0 10px 30px rgba(217, 67, 134, 0.25),
                       inset 0 1px 0 rgba(255, 255, 255, 0.9)
                     `,
-                    borderColor: 'rgba(10, 73, 64, 0.2)'
+                    borderColor: 'rgba(217, 67, 134, 0.2)'
                   },
                   '&:active': {
                     transform: 'translateY(0) scale(0.98)',
@@ -347,18 +347,18 @@ const LoginScreen: React.FC = () => {
                 minWidth: { xs: 100, sm: 120 },
                 height: { xs: 45, sm: 50 },
                 borderWidth: 2,
-                borderColor: 'rgba(10, 73, 64, 0.3)',
-                color: '#0a4940',
+                borderColor: 'rgba(217, 67, 134, 0.3)',
+                color: '#d94386',
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
-                boxShadow: '0 4px 15px rgba(10, 73, 64, 0.1)',
+                boxShadow: '0 4px 15px rgba(217, 67, 134, 0.1)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#0a4940',
-                  backgroundColor: '#0a4940',
+                  borderColor: '#d94386',
+                  backgroundColor: '#d94386',
                   color: 'white',
                   transform: 'translateY(-1px)',
-                  boxShadow: '0 6px 20px rgba(10, 73, 64, 0.3)',
+                  boxShadow: '0 6px 20px rgba(217, 67, 134, 0.3)',
                 },
                 '&:disabled': {
                   borderColor: 'rgba(108, 117, 125, 0.3)',

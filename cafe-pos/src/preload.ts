@@ -13,6 +13,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
   isFullscreen: () => ipcRenderer.invoke('is-fullscreen'),
   
+  // Auto-updater API'leri
+  updater: {
+    init: () => ipcRenderer.invoke('updater-init'),
+    check: () => ipcRenderer.invoke('updater-check'),
+    download: () => ipcRenderer.invoke('updater-download'),
+    install: () => ipcRenderer.invoke('updater-install')
+  },
+  
   // Database API'leri
   database: {
     // Kategori işlemleri
@@ -64,6 +72,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }
 });
 
+// IPC event listener'ları expose et
+contextBridge.exposeInMainWorld('electron', {
+  ipcRenderer: {
+    on: (channel: string, callback: (...args: any[]) => void) => {
+      ipcRenderer.on(channel, (_event, ...args) => callback(...args));
+    },
+    removeAllListeners: (channel: string) => {
+      ipcRenderer.removeAllListeners(channel);
+    }
+  }
+});
+
 // TypeScript için global tanım
 declare global {
   interface Window {
@@ -72,6 +92,18 @@ declare global {
       getPrinters: () => Promise<any[]>;
       toggleFullscreen: () => Promise<void>;
       isFullscreen: () => Promise<boolean>;
+      updater: {
+        init: () => Promise<{ success: boolean }>;
+        check: () => Promise<{ success: boolean }>;
+        download: () => Promise<{ success: boolean }>;
+        install: () => Promise<{ success: boolean }>;
+      };
+    };
+    electron: {
+      ipcRenderer: {
+        on: (channel: string, callback: (...args: any[]) => void) => void;
+        removeAllListeners: (channel: string) => void;
+      };
     };
   }
 }

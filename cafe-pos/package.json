@@ -1,8 +1,8 @@
 {
-  "name": "cafe-pos",
-  "productName": "cafe-pos",
+  "name": "makara-pos",
+  "productName": "Makara POS",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Makara - Modern POS System",
   "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
@@ -14,12 +14,35 @@
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
   },
-  "keywords": [],
+  "keywords": ["pos", "cafe", "restaurant", "makara"],
   "author": {
     "name": "Emirhan Erol",
     "email": "erolemirhan42@gmail.com"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ErolEmirhan/Project-LacromisaCoffeee.git"
+  },
+  "build": {
+    "appId": "com.makara.pos",
+    "productName": "Makara POS",
+    "publish": [{
+      "provider": "github",
+      "owner": "ErolEmirhan",
+      "repo": "Project-LacromisaCoffeee"
+    }],
+    "win": {
+      "target": ["nsis"],
+      "icon": "src/assets/Logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
     "@electron-forge/maker-deb": "^7.8.1",
@@ -58,6 +81,7 @@
     "@types/react-dom": "^19.1.6",
     "better-sqlite3": "^12.2.0",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.6.2",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

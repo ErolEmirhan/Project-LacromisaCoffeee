@@ -34,3 +34,4 @@ Eğer ses dosyalarınız yoksa, aşağıdaki ücretsiz kaynaklardan bulabilirsin
 ## Not:
 
 Ses dosyaları yüklenemezse, uygulama sessiz çalışmaya devam eder ve konsola uyarı mesajı yazar.
+

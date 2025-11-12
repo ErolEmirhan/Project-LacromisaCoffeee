@@ -119,19 +119,19 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
             <Box
               component="img"
               src={require('../assets/Logo.png')}
-              alt="Lacromisa Coffee Logo"
+              alt="Makara Logo"
               sx={{
                 width: 60,
                 height: 60,
                 borderRadius: '50%',
                 mx: 'auto',
                 mb: 1,
-                boxShadow: '0 2px 8px rgba(10, 73, 64, 0.2)',
+                boxShadow: '0 2px 8px rgba(217, 67, 134, 0.2)',
                 border: '2px solid rgba(255, 255, 255, 0.8)'
               }}
             />
             <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
-              Lacromisa Coffee
+              Makara
             </Typography>
             <Typography variant="body2" color="text.secondary">
               POS Satış Fişi
@@ -201,7 +201,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
               <strong>Ödeme Yöntemi:</strong> {paymentMethod}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Ödeme Durumu: <span style={{ color: '#4caf50', fontWeight: 600 }}>✓ Başarılı</span>
+              Ödeme Durumu: <span style={{ color: '#e91e63', fontWeight: 600 }}>✓ Başarılı</span>
             </Typography>
           </Box>
 
@@ -212,7 +212,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
             display: 'block',
             color: 'text.secondary'
           }}>
-                          Lacromisa Coffee POS Sistemi
+                          Makara POS Sistemi
             <br />
             Bizi tercih ettiğiniz için teşekkür ederiz!
           </Typography>
@@ -244,9 +244,9 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
             borderRadius: 2,
             textTransform: 'none',
             fontWeight: 600,
-            background: 'linear-gradient(45deg, #0a4940 30%, #2e6b63 90%)',
+            background: 'linear-gradient(45deg, #d94386 30%, #e36ba3 90%)',
             '&:hover': {
-              background: 'linear-gradient(45deg, #053429 30%, #0a4940 90%)',
+              background: 'linear-gradient(45deg, #053429 30%, #d94386 90%)',
             }
           }}
         >

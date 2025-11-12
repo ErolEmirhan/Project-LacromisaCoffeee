@@ -106,7 +106,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                p: 4,
                background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-               border: '2px solid rgba(10, 73, 64, 0.1)',
+               border: '2px solid rgba(217, 67, 134, 0.1)',
                transform: 'translateY(0)',
              }}
           >
@@ -187,7 +187,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
               p: 2, 
               bgcolor: 'grey.50', 
               borderRadius: 2,
-              border: '2px solid rgba(10, 73, 64, 0.1)'
+              border: '2px solid rgba(217, 67, 134, 0.1)'
             }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                 Girilen Metin:
@@ -226,16 +226,16 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                            borderRadius: 4,
                           background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
                           color: 'primary.main',
-                          border: '2px solid rgba(10, 73, 64, 0.1)',
-                          boxShadow: '0 4px 12px rgba(10, 73, 64, 0.15)',
+                          border: '2px solid rgba(217, 67, 134, 0.1)',
+                          boxShadow: '0 4px 12px rgba(217, 67, 134, 0.15)',
                           '&:hover': {
                             transform: 'translateY(-2px)',
-                            boxShadow: '0 6px 20px rgba(10, 73, 64, 0.25)',
+                            boxShadow: '0 6px 20px rgba(217, 67, 134, 0.25)',
                             background: 'linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%)',
                           },
                           '&:active': {
                             transform: 'translateY(0)',
-                            boxShadow: '0 2px 8px rgba(10, 73, 64, 0.2)',
+                            boxShadow: '0 2px 8px rgba(217, 67, 134, 0.2)',
                           }
                         }}
                       >
@@ -311,16 +311,16 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                            borderRadius: 3,
                           background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
                           color: 'primary.main',
-                          border: '2px solid rgba(10, 73, 64, 0.1)',
-                          boxShadow: '0 3px 8px rgba(10, 73, 64, 0.12)',
+                          border: '2px solid rgba(217, 67, 134, 0.1)',
+                          boxShadow: '0 3px 8px rgba(217, 67, 134, 0.12)',
                           '&:hover': {
                             transform: 'translateY(-1px)',
-                            boxShadow: '0 4px 12px rgba(10, 73, 64, 0.2)',
+                            boxShadow: '0 4px 12px rgba(217, 67, 134, 0.2)',
                             background: 'linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%)',
                           },
                           '&:active': {
                             transform: 'translateY(0)',
-                            boxShadow: '0 2px 6px rgba(10, 73, 64, 0.15)',
+                            boxShadow: '0 2px 6px rgba(217, 67, 134, 0.15)',
                           }
                         }}
                       >

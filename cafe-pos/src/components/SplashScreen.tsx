@@ -28,13 +28,13 @@ const SplashScreen: React.FC = () => {
 
   // Yükleme adımları
   const loadingSteps = [
-    '☕ Kahve makinesi hazırlanıyor...',
-    '🫘 Taze çekirdekler öğütülüyor...',
-    '🥛 Süt buharı ayarlanıyor...',
+    '🎯 Sistem başlatılıyor...',
+    '📦 Ürünler yükleniyor...',
+    '💳 Ödeme sistemi hazırlanıyor...',
     '📊 Menü sistemi yükleniyor...',
     '💰 Kasa sistemi açılıyor...',
     '✨ Son dokunuşlar yapılıyor...',
-            '🎉 Lacromisa Coffee\'ye hoş geldiniz!'
+    '🎉 Makara\'ye hoş geldiniz!'
   ];
 
   useEffect(() => {
@@ -98,7 +98,7 @@ const SplashScreen: React.FC = () => {
       height: '100vh',
       margin: 0,
       padding: 0,
-      background: 'linear-gradient(135deg, #0a4940 0%, #1a5a52 25%, #2e6b63 50%, #4caf50 100%)',
+      background: 'linear-gradient(135deg, #d94386 0%, #c9508a 25%, #e36ba3 50%, #e91e63 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -116,11 +116,11 @@ const SplashScreen: React.FC = () => {
             color: 'white',
             width: 60,
             height: 60,
-            boxShadow: '0 4px 20px rgba(10, 73, 64, 0.3)',
+            boxShadow: '0 4px 20px rgba(217, 67, 134, 0.3)',
             '&:hover': {
               bgcolor: 'primary.dark',
               transform: 'scale(1.05)',
-              boxShadow: '0 6px 25px rgba(10, 73, 64, 0.4)',
+              boxShadow: '0 6px 25px rgba(217, 67, 134, 0.4)',
             },
             transition: 'all 0.3s ease',
             border: '3px solid white'
@@ -231,7 +231,7 @@ const SplashScreen: React.FC = () => {
               {!logoError && logoUrl ? (
                 <img 
                   src={logoUrl}
-                  alt="Lacromisa Cafe Logo"
+                  alt="Makara Logo"
                   style={{ 
                     width: '200px', 
                     height: '200px', 
@@ -254,7 +254,7 @@ const SplashScreen: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '4rem',
-                  color: '#0a4940',
+                  color: '#d94386',
                   border: '4px solid rgba(255,255,255,0.3)',
                   filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.4))',
                   mx: 'auto'
@@ -279,7 +279,7 @@ const SplashScreen: React.FC = () => {
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text'
               }}>
-                LACROMISA COFFEE
+                MAKARA
               </Typography>
               <Typography variant="h6" sx={{ 
                 color: 'rgba(255,255,255,0.9)',
@@ -304,8 +304,8 @@ const SplashScreen: React.FC = () => {
                   background: 'rgba(255,255,255,0.15)',
                   '& .MuiLinearProgress-bar': {
                     borderRadius: 8,
-                    background: 'linear-gradient(90deg, #00c853 0%, #1de9b6 50%, #69f0ae 100%)',
-                    boxShadow: '0 0 24px rgba(0, 200, 83, 0.55)',
+                    background: 'linear-gradient(90deg, #d94386 0%, #e91e63 50%, #f06292 100%)',
+                    boxShadow: '0 0 24px rgba(217, 67, 134, 0.55)',
                     animation: 'progressGlow 1.6s ease-in-out infinite alternate',
                   }
                 }}

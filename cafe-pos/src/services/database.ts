@@ -850,6 +850,7 @@ class DatabaseService {
     return this.dbPath;
   }
 
+
   // ==================== MASA SİPARİŞLERİ İŞLEMLERİ ====================
 
   // Aktif masa siparişlerini getir

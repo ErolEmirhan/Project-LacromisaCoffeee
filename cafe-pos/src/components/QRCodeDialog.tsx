@@ -51,7 +51,7 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'linear-gradient(135deg, #0a4940 0%, #2e6b63 100%)',
+        background: 'linear-gradient(135deg, #d94386 0%, #e36ba3 100%)',
         color: 'white',
         borderRadius: '12px 12px 0 0'
       }}>
@@ -77,7 +77,7 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
       </DialogTitle>
 
       <DialogContent sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: '#0a4940' }}>
+        <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: '#d94386' }}>
           Telefonunuzdan bu QR kodu okutun
         </Typography>
 
@@ -90,14 +90,14 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
             width: 'fit-content',
             borderRadius: 3,
             background: 'white',
-            border: '3px solid #0a4940'
+            border: '3px solid #d94386'
           }}
         >
           <QRCode
             value={qrCodeValue}
             size={200}
             level="H"
-            fgColor="#0a4940"
+            fgColor="#d94386"
             bgColor="white"
             style={{
               borderRadius: 8,
@@ -107,8 +107,8 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
         </Paper>
 
         {/* Bağlantı Bilgileri */}
-        <Box sx={{ mt: 4, p: 3, bgcolor: 'rgba(10, 73, 64, 0.05)', borderRadius: 2 }}>
-          <Typography variant="body1" sx={{ mb: 2, fontWeight: 600, color: '#0a4940' }}>
+        <Box sx={{ mt: 4, p: 3, bgcolor: 'rgba(217, 67, 134, 0.05)', borderRadius: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2, fontWeight: 600, color: '#d94386' }}>
             🔗 Bağlantı Adresi
           </Typography>
           
@@ -128,7 +128,7 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
                 fontFamily: 'monospace',
                 fontSize: '1rem',
                 fontWeight: 600,
-                color: '#0a4940',
+                color: '#d94386',
                 wordBreak: 'break-all'
               }}
             >
@@ -140,10 +140,10 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
                 onClick={handleCopyLink}
                 size="small"
                 sx={{
-                  bgcolor: 'rgba(10, 73, 64, 0.1)',
-                  color: '#0a4940',
+                  bgcolor: 'rgba(217, 67, 134, 0.1)',
+                  color: '#d94386',
                   '&:hover': {
-                    bgcolor: 'rgba(10, 73, 64, 0.2)',
+                    bgcolor: 'rgba(217, 67, 134, 0.2)',
                     transform: 'scale(1.1)'
                   },
                   transition: 'all 0.2s ease'
@@ -157,7 +157,7 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
 
         {/* Kullanım Talimatları */}
         <Box sx={{ mt: 3, textAlign: 'left' }}>
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, color: '#0a4940' }}>
+          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, color: '#d94386' }}>
             📋 Nasıl Bağlanılır?
           </Typography>
           
@@ -189,7 +189,7 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
           variant="contained"
           size="large"
           sx={{
-            bgcolor: '#0a4940',
+            bgcolor: '#d94386',
             color: 'white',
             px: 4,
             py: 1.5,
@@ -198,7 +198,7 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({ open, onClose, pcIpAddress 
             '&:hover': {
               bgcolor: '#083a32',
               transform: 'translateY(-2px)',
-              boxShadow: '0 8px 25px rgba(10, 73, 64, 0.3)'
+              boxShadow: '0 8px 25px rgba(217, 67, 134, 0.3)'
             },
             transition: 'all 0.3s ease'
           }}

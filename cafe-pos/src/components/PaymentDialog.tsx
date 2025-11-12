@@ -64,7 +64,7 @@ const PaymentDialog: React.FC = () => {
   const [showCustomerSelection, setShowCustomerSelection] = React.useState(false);
 
   const paymentMethods = [
-    { id: 'cash', name: 'Nakit', icon: CashIcon, color: '#4caf50', description: 'Nakit ödeme' },
+    { id: 'cash', name: 'Nakit', icon: CashIcon, color: '#e91e63', description: 'Nakit ödeme' },
     { id: 'card', name: 'Kredi Kartı', icon: CreditCardIcon, color: '#2196f3', description: 'Kart ile ödeme' },
     { id: 'contactless', name: 'Temassız', icon: ContactlessIcon, color: '#ff9800', description: 'NFC/Temassız ödeme' }
   ];

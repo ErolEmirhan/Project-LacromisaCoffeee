@@ -109,3 +109,12 @@ export interface Customer {
   phone?: string;
   createdAt: string;
 }
+
+// Stok seviyesi tipi
+export interface StockLevel {
+  productId: string;
+  quantity: number;
+  minQuantity: number;
+  maxQuantity: number;
+  updatedAt: string;
+}
