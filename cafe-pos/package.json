@@ -1,7 +1,7 @@
 {
   "name": "makara-pos",
   "productName": "Makara POS",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Makara - Modern POS System",
   "main": ".webpack/main",
   "scripts": {
