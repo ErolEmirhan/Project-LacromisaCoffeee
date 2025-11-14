@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lacromisa Coffee - Mobil</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        /* Modern Mobile Header */
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-title h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        .coffee-icon {
+            font-size: 1.8rem;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.disconnected {
+            background: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 20px;
+        }
+        
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .welcome-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .welcome-subtitle {
+            font-size: 0.95rem;
+            opacity: 0.8;
+        }
+        
+        /* Modern Table Grid */
+        .table-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 16px;
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .table-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 2px solid transparent;
+            border-radius: 20px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        .table-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .table-card:hover::before,
+        .table-card:active::before {
+            opacity: 1;
+        }
+        
+        .table-card.occupied {
+            background: rgba(236, 72, 153, 0.2);
+            border-color: rgba(236, 72, 153, 0.4);
+        }
+        
+        .table-card.occupied::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: #ec4899;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .table-number {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+        
+        .table-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+        
+        .table-status {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        
+        .table-info {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        /* Modern Product Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: #ffffff;
+            width: 100%;
+            height: 100vh;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .modal.show .modal-content {
+            transform: translateY(0);
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 0;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Category Tabs */
+        .category-tabs {
+            padding: 20px 15px 0;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .category-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 15px;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .category-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .category-tab {
+            padding: 10px 20px;
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #64748b;
+            min-width: fit-content;
+        }
+        
+        .category-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+        }
+        
+        /* Full Screen Products */
+        .products-section {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 100px; /* Space for bottom bar */
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            overflow-y: auto;
+            padding: 120px 20px 20px 20px;
+            z-index: 10;
+        }
+        
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .product-card {
+            background: linear-gradient(135deg, #ffffff 0%, #fcfcfc 100%);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            border: 1px solid #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            aspect-ratio: 1; /* Perfect square */
+            justify-content: center;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.1);
+            border-color: rgba(102, 126, 234, 0.2);
+        }
+        
+        .product-card:active {
+            transform: translateY(-2px) scale(0.98);
+        }
+        
+        .product-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #334155;
+            font-size: 0.95rem;
+            line-height: 1.3;
+        }
+        
+        .product-price {
+            font-size: 1.2rem;
+            color: #667eea;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .product-card::after {
+            content: '+';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s ease;
+        }
+        
+        .product-card:hover::after {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        /* Custom Bottom Bar - Chrome Safe */
+        .cart-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
+            backdrop-filter: blur(20px);
+            z-index: 300;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(calc(100% - 100px));
+            height: 75vh;
+            overflow: hidden;
+            border-top: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        
+        .cart-section.expanded {
+            transform: translateY(0);
+        }
+        
+        .cart-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 20px 20px 30px 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            /* Safe area for mobile browsers */
+            padding-bottom: max(30px, env(safe-area-inset-bottom, 30px));
+        }
+        
+        .cart-handle::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 5px;
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .cart-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 350px;
+            margin-top: 10px;
+        }
+        
+        .cart-summary {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .cart-mini-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .cart-mini-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            min-width: 24px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .cart-mini-total {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #667eea;
+        }
+        
+        .expand-arrow {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .expand-arrow::after {
+            content: '↑';
+            font-size: 20px;
+            color: white;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+        
+        .cart-section.expanded .expand-arrow {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
+        .cart-section.expanded .expand-arrow::after {
+            content: '×';
+            transform: rotate(0deg);
+            font-size: 24px;
+        }
+        
+        .cart-content {
+            padding: 120px 20px 30px 20px;
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .cart-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .cart-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            min-width: 24px;
+            text-align: center;
+        }
+        
+        .cart-items {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 16px;
+            padding: 12px;
+        }
+        
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #ffffff;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        .cart-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .cart-item-info {
+            flex: 1;
+        }
+        
+        .cart-item-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 1rem;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+        
+        .cart-item-price {
+            color: #667eea;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .quantity-btn {
+            background: #f1f5f9;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #475569;
+            transition: all 0.3s ease;
+        }
+        
+        .quantity-btn:active {
+            background: #e2e8f0;
+            transform: scale(0.9);
+        }
+        
+        .quantity-display {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #1e293b;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-top: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        
+        .total-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .total-amount {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .save-order-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 20px 25px;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 24px rgba(16, 185, 129, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .save-order-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+        
+        .save-order-btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        
+        .save-order-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 35px rgba(16, 185, 129, 0.5);
+        }
+        
+        .save-order-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .save-order-btn:disabled {
+            background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+            cursor: not-allowed;
+            box-shadow: 0 2px 8px rgba(156, 163, 175, 0.2);
+            transform: none;
+        }
+        
+        /* Modern Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            width: calc(100% - 40px);
+            max-width: 400px;
+        }
+        
+        .toast {
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            border-left: 4px solid #10b981;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateY(-100px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 10px;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.error {
+            border-left-color: #ef4444;
+        }
+        
+        .toast-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+        
+        .toast-content {
+            flex: 1;
+        }
+        
+        .toast-title {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+        }
+        
+        .toast-message {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        
+        /* Loading States */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive Adjustments */
+        @media (max-width: 480px) {
+            .table-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                padding: 15px;
+            }
+            
+            .table-card {
+                padding: 16px 10px;
+            }
+            
+            .products-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .modal-header {
+                padding: 16px;
+            }
+            
+            .modal-header h2 {
+                font-size: 1.1rem;
+            }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .products-section,
+            .cart-section {
+                background: #1e293b;
+            }
+            
+            .product-card {
+                background: #334155;
+                color: white;
+            }
+            
+            .product-name {
+                color: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Modern Mobile Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <span class="coffee-icon">☕</span>
+                    <h1>Lacromisa Coffee</h1>
+                </div>
+                <div class="connection-status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="connectionText">Bağlanıyor...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Welcome Section -->
+        <div class="main-content">
+            <div class="welcome-section">
+                <div class="welcome-title">🪑 Masa Seçimi</div>
+                <div class="welcome-subtitle">Sipariş vermek istediğiniz masayı seçin</div>
+            </div>
+            
+            <!-- Modern Table Grid -->
+            <div class="table-grid" id="tableGrid">
+                <!-- Tables will be dynamically generated -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modern Product Selection Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="selectedTableText">Masa - Ürün Seçimi</h2>
+                <button class="close-btn" onclick="closeProductModal()">&times;</button>
+            </div>
+            
+            <!-- Category Tabs -->
+            <div class="category-tabs">
+                <div class="category-scroll" id="categoryTabs">
+                    <div class="category-tab active" onclick="filterByCategory('all')">🔍 Tümü</div>
+                    <!-- Categories will be added here -->
+                </div>
+            </div>
+            
+            <!-- Products Section -->
+            <div class="products-section">
+                <div class="products-grid" id="productsGrid">
+                    <!-- Products will be added here -->
+                </div>
+            </div>
+            
+            <!-- Bottom Sheet Cart -->
+            <div class="cart-section" id="cartSection">
+                <div class="cart-handle" onclick="toggleCart()">
+                    <div class="cart-toggle">
+                        <div class="cart-summary">
+                            <div class="cart-mini-title">🛒 Sepet</div>
+                            <div class="cart-mini-count" id="cartMiniCount">0</div>
+                        </div>
+                        <div class="cart-mini-total" id="cartMiniTotal">0.00 TL</div>
+                        <div class="expand-arrow"></div>
+                    </div>
+                </div>
+                
+                <div class="cart-content">
+                    <div class="cart-header">
+                        <div class="cart-title">🛒 Sepetiniz</div>
+                        <div class="cart-count" id="cartCount">0</div>
+                    </div>
+                    
+                    <div class="cart-items" id="cartItems">
+                        <!-- Cart items will be added here -->
+                    </div>
+                    
+                    <div class="cart-total">
+                        <div class="total-label">Toplam</div>
+                        <div class="total-amount" id="cartTotal">0.00 TL</div>
+                    </div>
+                    
+                    <button class="save-order-btn" onclick="saveOrder()" id="saveButton" disabled>
+                        💾 Masaya Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Global Variables
+        let socket;
+        let tableOrders = {};
+        let isConnected = false;
+        let products = [];
+        let categories = [];
+        let cart = [];
+        let selectedTable = null;
+        let filteredProducts = [];
+        
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
+            renderTables();
+        });
+        
+        // Socket Connection
+        function initializeSocket() {
+            try {
+                console.log('🔄 Socket.IO bağlantısı başlatılıyor...');
+                
+                // Dinamik IP adresi - mevcut host'u kullan
+                const serverUrl = window.location.protocol + '//' + window.location.hostname + ':3001';
+                console.log('🔗 Sunucu URL:', serverUrl);
+                
+                socket = io(serverUrl, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 20000
+                });
+                
+                socket.on('connect', function() {
+                    console.log('✅ WebSocket bağlandı, ID:', socket.id);
+                    isConnected = true;
+                    updateConnectionStatus(true);
+                    
+                    socket.emit('client_ready', {
+                        clientType: 'mobile',
+                        timestamp: new Date().toISOString()
+                    });
+                });
+                
+                socket.on('disconnect', function() {
+                    console.log('❌ WebSocket bağlantısı kesildi');
+                    isConnected = false;
+                    updateConnectionStatus(false);
+                });
+                
+                socket.on('current_table_orders', function(orders) {
+                    console.log('📋 Masa siparişleri alındı:', orders);
+                    if (orders && typeof orders === 'object') {
+                        tableOrders = orders;
+                    }
+                    renderTables();
+                });
+                
+                socket.on('products_data', function(data) {
+                    console.log('🛍️ Ürün verileri alındı:', data);
+                    if (data.products && Array.isArray(data.products)) {
+                        products = data.products;
+                    }
+                    if (data.categories && Array.isArray(data.categories)) {
+                        categories = data.categories;
+                    }
+                    console.log('✅ Ürünler hazır:', products.length, 'ürün,', categories.length, 'kategori');
+                });
+                
+                socket.on('table_order_updated', function(data) {
+                    console.log('📊 Masa güncellendi:', data);
+                    if (data.tableNumber && data.orderData) {
+                        tableOrders[data.tableNumber] = data.orderData;
+                        renderTables();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('❌ Socket başlatma hatası:', error);
+                updateConnectionStatus(false);
+            }
+        }
+        
+        // Update Connection Status
+        function updateConnectionStatus(connected) {
+            const statusDot = document.getElementById('statusDot');
+            const connectionText = document.getElementById('connectionText');
+            
+            if (connected) {
+                statusDot.classList.remove('disconnected');
+                connectionText.textContent = 'Bağlı';
+            } else {
+                statusDot.classList.add('disconnected');
+                connectionText.textContent = 'Bağlantı Yok';
+            }
+        }
+        
+        // Render Tables
+        function renderTables() {
+            const tableGrid = document.getElementById('tableGrid');
+            tableGrid.innerHTML = '';
+            
+            for (let i = 1; i <= 50; i++) {
+                const table = document.createElement('div');
+                const orderData = tableOrders[i];
+                const isOccupied = orderData && orderData.isActive && orderData.items && orderData.items.length > 0;
+                
+                table.className = `table-card ${isOccupied ? 'occupied' : ''}`;
+                table.onclick = () => openProductModal(i);
+                
+                table.innerHTML = `
+                    <div class="table-icon">🪑</div>
+                    <div class="table-number">Masa ${i}</div>
+                    <div class="table-status">${isOccupied ? 'Dolu' : 'Boş'}</div>
+                    ${isOccupied ? `<div class="table-info">${orderData.items.length} ürün • ${orderData.total.toFixed(2)} TL</div>` : ''}
+                `;
+                
+                tableGrid.appendChild(table);
+            }
+        }
+        
+        // Open Product Modal
+        function openProductModal(tableNumber) {
+            selectedTable = tableNumber;
+            cart = [];
+            
+            document.getElementById('selectedTableText').textContent = `Masa ${tableNumber} - Ürün Seçimi`;
+            
+            renderCategories();
+            renderProducts();
+            updateCartDisplay();
+            
+            const modal = document.getElementById('productModal');
+            modal.style.display = 'block';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+        
+        // Close Product Modal
+        function closeProductModal() {
+            const modal = document.getElementById('productModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                selectedTable = null;
+                cart = [];
+                filteredProducts = [];
+            }, 300);
+        }
+        
+        // Render Categories
+        function renderCategories() {
+            const categoryTabs = document.getElementById('categoryTabs');
+            const allButton = categoryTabs.querySelector('.category-tab');
+            
+            // Remove existing category buttons except "Tümü"
+            const existingTabs = categoryTabs.querySelectorAll('.category-tab:not(:first-child)');
+            existingTabs.forEach(tab => tab.remove());
+            
+            categories.forEach(category => {
+                const tab = document.createElement('div');
+                tab.className = 'category-tab';
+                tab.textContent = `${category.icon || '📁'} ${category.name}`;
+                tab.onclick = () => filterByCategory(category.id, tab);
+                categoryTabs.appendChild(tab);
+            });
+        }
+        
+        // Filter Products by Category
+        function filterByCategory(categoryId, clickedTab) {
+            // Update active tab
+            document.querySelectorAll('.category-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            if (clickedTab) {
+                clickedTab.classList.add('active');
+            } else {
+                document.querySelector('.category-tab').classList.add('active');
+            }
+            
+            if (categoryId === 'all') {
+                filteredProducts = [];
+            } else {
+                filteredProducts = products.filter(product => product.category === categoryId);
+            }
+            
+            renderProducts();
+        }
+        
+        // Render Products
+        function renderProducts() {
+            const productsGrid = document.getElementById('productsGrid');
+            productsGrid.innerHTML = '';
+            
+            const productsToShow = filteredProducts.length > 0 ? filteredProducts : products;
+            
+            if (productsToShow.length === 0) {
+                productsGrid.innerHTML = '<div style="text-align: center; color: #64748b; grid-column: 1/-1; padding: 40px;">Ürün bulunamadı</div>';
+                return;
+            }
+            
+            productsToShow.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.onclick = () => addToCart(product.id);
+                productCard.innerHTML = `
+                    <div class="product-name">${product.name}</div>
+                    <div class="product-price">${parseFloat(product.price).toFixed(2)} TL</div>
+                `;
+                productsGrid.appendChild(productCard);
+            });
+        }
+        
+        // Add to Cart
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
+            const existingItem = cart.find(item => item.id === productId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+                existingItem.total_price = existingItem.quantity * existingItem.price;
+            } else {
+                cart.push({
+                    id: product.id,
+                    name: product.name,
+                    price: parseFloat(product.price),
+                    quantity: 1,
+                    total_price: parseFloat(product.price),
+                    category: product.category
+                });
+            }
+            
+            updateCartDisplay();
+            
+            // Show success feedback
+            showToast('success', 'Ürün Eklendi', `${product.name} sepete eklendi`);
+        }
+        
+        // Toggle Cart Bottom Sheet
+        function toggleCart() {
+            const cartSection = document.getElementById('cartSection');
+            cartSection.classList.toggle('expanded');
+        }
+        
+        // Update Cart Display
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cartItems');
+            const cartCount = document.getElementById('cartCount');
+            const cartTotal = document.getElementById('cartTotal');
+            const cartMiniCount = document.getElementById('cartMiniCount');
+            const cartMiniTotal = document.getElementById('cartMiniTotal');
+            const saveButton = document.getElementById('saveButton');
+            
+            cartItems.innerHTML = '';
+            let totalPrice = 0;
+            let totalItems = 0;
+            
+            if (cart.length === 0) {
+                cartItems.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 30px; font-style: italic;">🛒 Sepetiniz boş<br><small>Ürünlere dokunarak sepete ekleyin</small></div>';
+            } else {
+                cart.forEach((item, index) => {
+                    totalPrice += item.total_price;
+                    totalItems += item.quantity;
+                    
+                    const cartItem = document.createElement('div');
+                    cartItem.className = 'cart-item';
+                    cartItem.innerHTML = `
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${item.name}</div>
+                            <div class="cart-item-price">${item.price.toFixed(2)} TL</div>
+                        </div>
+                        <div class="quantity-controls">
+                            <button class="quantity-btn" onclick="changeQuantity(${index}, -1)">-</button>
+                            <span class="quantity-display">${item.quantity}</span>
+                            <button class="quantity-btn" onclick="changeQuantity(${index}, 1)">+</button>
+                        </div>
+                    `;
+                    cartItems.appendChild(cartItem);
+                });
+            }
+            
+            cartCount.textContent = totalItems;
+            cartTotal.textContent = totalPrice.toFixed(2) + ' TL';
+            cartMiniCount.textContent = totalItems;
+            cartMiniTotal.textContent = totalPrice.toFixed(2) + ' TL';
+            saveButton.disabled = cart.length === 0;
+        }
+        
+        // Change Quantity
+        function changeQuantity(index, change) {
+            const item = cart[index];
+            item.quantity += change;
+            
+            if (item.quantity <= 0) {
+                cart.splice(index, 1);
+                showToast('info', 'Ürün Çıkarıldı', `${item.name} sepetten çıkarıldı`);
+            } else {
+                item.total_price = item.quantity * item.price;
+            }
+            
+            updateCartDisplay();
+        }
+        
+        // Save Order
+        function saveOrder() {
+            if (cart.length === 0) {
+                showToast('error', 'Hata', 'Sepet boş! Lütfen ürün ekleyin.');
+                return;
+            }
+            
+            const saveButton = document.getElementById('saveButton');
+            saveButton.innerHTML = '<div class="spinner"></div> Kaydediliyor...';
+            saveButton.disabled = true;
+            
+            const totalPrice = cart.reduce((sum, item) => sum + item.total_price, 0);
+            
+            const orderData = {
+                tableNumber: selectedTable,
+                items: cart.map(item => ({
+                    id: item.id,
+                    product_name: item.name,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    total_price: item.total_price,
+                    category: item.category
+                })),
+                total: totalPrice
+            };
+            
+            if (socket && isConnected) {
+                console.log('📤 Masa siparişi gönderiliyor:', orderData);
+                
+                socket.emit('add_to_table', orderData);
+                
+                setTimeout(() => {
+                    showToast('success', 'Sipariş Kaydedildi!', `Masa ${selectedTable} için ${cart.length} ürün başarıyla kaydedildi`);
+                    
+                    // Close cart and modal
+                    const cartSection = document.getElementById('cartSection');
+                    cartSection.classList.remove('expanded');
+                    closeProductModal();
+                    
+                    saveButton.innerHTML = '💾 Masaya Kaydet';
+                    saveButton.disabled = false;
+                }, 1000);
+            } else {
+                showToast('error', 'Bağlantı Hatası', 'Sunucu bağlantısı yok! Lütfen tekrar deneyin.');
+                saveButton.innerHTML = '💾 Masaya Kaydet';
+                saveButton.disabled = false;
+            }
+        }
+        
+        // Modern Toast Notifications
+        function showToast(type, title, message) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️',
+                warning: '⚠️'
+            };
+            
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || icons.info}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Show toast
+            setTimeout(() => toast.classList.add('show'), 100);
+            
+            // Hide and remove toast
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toastContainer.removeChild(toast), 400);
+            }, 3000);
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>
